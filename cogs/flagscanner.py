@@ -33,7 +33,7 @@ class FlagScanner(commands.Cog):
         self.messages = []
         self.train_df = pd.read_csv('./input/train.csv')
         test_df = pd.read_csv('./input/test.csv')
-        self.cols_target = ['obscene','insult','toxic','severe_toxic','identity_hate','threat']
+        self.cols_target = ['insult','severe_toxic','identity_hate','threat']
         
         self.X = self.train_df.comment_text
         vect = TfidfVectorizer(ngram_range=(1,2), stop_words='english',
@@ -76,7 +76,7 @@ class FlagScanner(commands.Cog):
         text = re.sub('\s+', ' ', text)
         text = text.strip(' ')
         return text
-        
+
     def compute_messages(self):
         
         test_messages = self.messages.copy()
