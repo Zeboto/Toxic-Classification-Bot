@@ -150,5 +150,5 @@ logs/
 # Build outputs
 output/
 
-# Model files
-*.pkl
+# Input files
+new_train.csv
