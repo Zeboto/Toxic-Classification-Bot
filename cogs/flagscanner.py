@@ -6,9 +6,11 @@ import seaborn as sns
 import asyncio
 import collections
 import io
+import os
 import math
 import random
 import re
+import csv
 from datetime import datetime, timedelta
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
@@ -48,7 +50,17 @@ class FlagScanner(commands.Cog):
                 if len(flags) == 0: return
                 for flag in flags:
                     await self.bot.get_channel(self.bot.config.get('flag_channel')).send(embed=flag)
-                
+    
+    def add_train_row(self, row: dict={'message': 'text', 'score': {'insult': 0, 'severe_toxic': 0, 'identity_hate': 0, 'threat': 0}}):
+        row = ([row['message']] + [x[1] for x in row['score'].items()])
+        is_new_file = not os.path.exists("./input/new_train.csv")
+            
+        with open(r'./input/new_train.csv', 'a') as f:
+            writer = csv.writer(f)
+            if is_new_file:
+                writer.writerow(['comment_text'] + self.cols_target)
+            writer.writerow(row)
+
     def clean_text(self, text):
         text = text.lower()
         text = re.sub(r"what's", "what is ", text)
@@ -67,7 +79,6 @@ class FlagScanner(commands.Cog):
         return text
 
     def compute_messages(self):
-        
         test_messages = self.messages.copy()
         self.bot.logger.info([x.content for x in test_messages])
         self.messages = []
@@ -76,6 +87,9 @@ class FlagScanner(commands.Cog):
         start = datetime.now()
         
         train_df = pd.read_csv('./input/train.csv')
+        if os.path.exists("./input/new_train.csv"):
+            train_df = pd.concat([train_df,pd.read_csv('./input/new_train.csv')], axis=0, ignore_index=True)
+            self.bot.logger.info(train_df.tail(2))
         X = train_df.comment_text
 
         data = {'comment_text': [x.content for x in test_messages]}
