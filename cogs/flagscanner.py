@@ -136,7 +136,8 @@ class FlagScanner(commands.Cog):
             embeds.append(embed)
         if len(flagged_messages) > 0:
             return embeds
-    @commands.has_permissions(ban_members=True)
+            
+    @commands.is_owner()
     @commands.command("extract_messages")
     async def extract_messages_command(self, ctx: commands.Context, channel_id: str='', count: int=100):
         channel = self.bot.get_channel(int(channel_id))
@@ -149,5 +150,11 @@ class FlagScanner(commands.Cog):
                 if len(flags) == 0: return
                 for flag in flags:
                     await self.bot.get_channel(self.bot.config.get('flag_channel')).send(embed=flag)
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        self.bot.remove_command('help')
+
 def setup(bot):
     bot.add_cog(FlagScanner(bot))
+
