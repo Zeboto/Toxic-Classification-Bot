@@ -97,7 +97,8 @@ class FlagScanner(commands.Cog):
         test_df['comment_text'] = test_df['comment_text'].map(lambda com : self.clean_text(com))
 
         vect = TfidfVectorizer(ngram_range=(1,2), stop_words='english',
-                    min_df=3, max_df=0.9)
+                    min_df=3, max_df=0.9, use_idf=1,
+               smooth_idf=1, sublinear_tf=1)
         message_contents = test_df.comment_text
         test_X = vect.fit_transform(message_contents)
         train_X = vect.transform(X)
