@@ -31,19 +31,8 @@ class FlagScanner(commands.Cog):
         self.compute_lock = asyncio.Lock()
 
         self.messages = []
-        self.train_df = pd.read_csv('./input/train.csv')
-        test_df = pd.read_csv('./input/test.csv')
         self.cols_target = ['insult','severe_toxic','identity_hate','threat']
         
-        self.X = self.train_df.comment_text
-        vect = TfidfVectorizer(ngram_range=(1,2), stop_words='english',
-               min_df=3, max_df=0.9)
-        
-        # learn the vocabulary in the training data, then use it to create a document-term matrix
-        transformer = vect.fit(self.X)
-
-        # Dump the file
-        pickle.dump(transformer, open("tfidf1.pkl", "wb"))
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -85,27 +74,27 @@ class FlagScanner(commands.Cog):
         self.bot.logger.info(f"Starting evaluation on {len(test_messages)} messages...")
 
         start = datetime.now()
+        
+        train_df = pd.read_csv('./input/train.csv')
+        X = train_df.comment_text
 
         data = {'comment_text': [x.content for x in test_messages]}
-        df = pd.DataFrame(data=data)
-        df['comment_text'] = df['comment_text'].map(lambda com : self.clean_text(com))
+        test_df = pd.DataFrame(data=data)
+        test_df['comment_text'] = test_df['comment_text'].map(lambda com : self.clean_text(com))
 
-        tf1 = pickle.load(open("tfidf1.pkl", 'rb'))
-
-        # Create new tfidfVectorizer with old vocabulary
         vect = TfidfVectorizer(ngram_range=(1,2), stop_words='english',
-                    min_df=3, max_df=0.9, vocabulary = tf1.vocabulary_)
-        message_contents = df.comment_text
+                    min_df=3, max_df=0.9)
+        message_contents = test_df.comment_text
         test_X = vect.fit_transform(message_contents)
-        train_X = vect.transform(self.X)
+        train_X = vect.transform(X)
 
         logreg = LogisticRegression(C=12.0, solver='liblinear')
         results = dict()
-        for i in range(len(df)):
+        for i in range(len(test_df)):
             results[i] = {}
         for label in self.cols_target:
             self.bot.logger.info('... Processing {}'.format(label))
-            y = self.train_df[label]
+            y = train_df[label]
             # train the model using X_dtm & y
             logreg.fit(train_X, y)
             # compute the predicted probabilities for X_test_dtm
