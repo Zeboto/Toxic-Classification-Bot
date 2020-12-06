@@ -47,7 +47,7 @@ class FlagScanner(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.content.startswith("."): return
+        if message.content.startswith("f."): return
         
         if message.channel.id not in self.bot.config.get("scan_channels", []): return
 
