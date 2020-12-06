@@ -36,7 +36,7 @@ with open('config.toml', 'r', encoding='utf-8') as fp:
 token = config["token"]
 
 
-bot = FlagBot('.', config=config)
+bot = FlagBot('f.', config=config)
 
 bot.load_extension("jishaku")
 bot.load_extension("cogs.flagscanner")
