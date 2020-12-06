@@ -126,7 +126,7 @@ class FlagScanner(commands.Cog):
         for flagged_message in flagged_messages:
             message = flagged_message['message']
             scores = flagged_message['score']
-            description = f"**User**: {message.author.name}#{message.author.discriminator} (`{message.author.id}`)\n**Message**:||[{message.content}]({message.jump_url})||\n\n__**Scores:**__\n"
+            description = f"**User**: ||{message.author.name}#{message.author.discriminator} (`{message.author.id}`)||\n**Message**: [{message.content}]({message.jump_url})\n\n__**Scores:**__\n"
             for k,v in scores.items():
                 description += f"`{k}`: {round(v,3)}\n"
 
