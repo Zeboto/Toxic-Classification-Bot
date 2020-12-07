@@ -11,6 +11,7 @@ import math
 import random
 import re
 import csv
+import math
 from datetime import datetime, timedelta
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
@@ -30,29 +31,119 @@ class FlagScanner(commands.Cog):
     def __init__(self, bot):
         super().__init__()
         self.bot = bot
+        
         self.compute_lock = asyncio.Lock()
 
+        self.queue_lock = asyncio.Lock()
+        self.review_queue = []
+        self.in_review = []
+        self.sanitize_queue = []
+        self.sanitize_message = None
+    
         self.messages = []
         self.cols_target = ['insult','severe_toxic','identity_hate','threat']
-        
+    
+    @commands.Cog.listener()
+    async def on_ready(self):
+        self.bot.remove_command('help')
+        channel = self.bot.get_channel(self.bot.config.get('review_channel'))
+        await channel.purge(limit=100)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
+        
         if message.content.startswith("f."): return
         
         if message.channel.id not in self.bot.config.get("scan_channels", []): return
+        
+        for m in self.in_review:
+            if m['review_id'] not in [x.id for x in self.bot.cached_messages]:
+                await fetch_message(m['review_id'].id)
 
-        self.messages.append(message)
-        self.bot.logger.info(f"Added message {len(self.messages)}/{50}")
+        self.messages += [message]
+        self.bot.logger.info(f"Added message {len(self.messages)}/{100}")
         async with self.compute_lock:
-            if len(self.messages) == 50:
+            if len(self.messages) == 100:
                 flags = await asyncio.get_event_loop().run_in_executor(None, self.compute_messages)
                 if len(flags) == 0: return
                 for flag in flags:
                     await self.bot.get_channel(self.bot.config.get('flag_channel')).send(embed=flag)
+                if len(self.in_review) == 0 and len(self.review_queue) >= 5:
+                    for i in range(5):
+                        new_review = self.review_queue.pop()
+                        new_review['review_id'] = await self.create_new_review(new_review)
+                        self.in_review.append(new_review)
+
+    @commands.Cog.listener()
+    async def on_reaction_add(self, reaction: discord.Reaction, user: discord.Member):
+        self.bot.logger.info("Logged reaction")
+        if (user.id == self.bot.user.id): return
+        if reaction.message.channel.id != self.bot.config.get('review_channel') and reaction.message.channel.id != self.bot.config.get('sanitize_channel'): return
+        emojis = self.bot.config.get('reaction_emojis')
+
+        if str(reaction) not in emojis[-2:]: return    
+        
+        if str(reaction) == emojis[-2] and reaction.message.channel.id == self.bot.config.get('review_channel') and reaction.count > 3:
+            self.bot.logger.info("Sending review.")
+            review_message = next(x for x in self.in_review if x['review_id'] == reaction.message.id)
+            self.in_review.pop(self.in_review.index(review_message))
+            reactions = reaction.message.reactions
+            for r in reactions:
+                if str(r) in emojis[:-2]:
+                    i = emojis.index(str(r)) 
+                    review_message['score'][self.cols_target[i]] = 1 if (r.count-1) >= math.ceil((reaction.count-1)*2/3) else 0
+            
+            self.add_train_row(review_message)
+            await reaction.message.delete()
+            if len(self.review_queue) > 0:
+                new_review = self.review_queue.pop()
+                new_review['review_id'] = await self.create_new_review(new_review)
+                self.in_review.append(new_review)
     
-    def add_train_row(self, row: dict={'message': 'text', 'score': {'insult': 0, 'severe_toxic': 0, 'identity_hate': 0, 'threat': 0}}):
-        row = ([row['message']] + [x[1] for x in row['score'].items()])
+    @commands.is_owner()
+    @commands.command("extract_messages")
+    async def extract_messages_command(self, ctx: commands.Context, channel_id: str='', count: int=100):
+        channel = self.bot.get_channel(int(channel_id))
+        messages = await channel.history(limit=count).flatten()
+        self.messages += messages
+        self.bot.logger.info(f"Added message {len(self.messages)}/{100}")
+        async with self.compute_lock:
+            if len(self.messages) >= 100:    
+                flags = await asyncio.get_event_loop().run_in_executor(None, self.compute_messages)
+                if len(flags) == 0: return
+                for flag in flags:
+                    await self.bot.get_channel(self.bot.config.get('flag_channel')).send(embed=flag)
+                if len(self.in_review) == 0 and len(self.review_queue) >= 5:
+                    for i in range(5):
+                        new_review = self.review_queue.pop()
+                        new_review['review_id'] = await self.create_new_review(new_review)
+                        self.in_review.append(new_review)
+
+
+    async def create_new_review(self, review: dict={'message': discord.Message, 'score': {'insult': int, 'severe_toxic': int, 'identity_hate': int, 'threat': int}}):
+        message = review['message']
+        scores = review['score']
+        description = f"**Message**: {message.content}\n\n__**Scores:**__\n"
+        index = 0
+        for k,v in scores.items():
+            description += f"{self.bot.config.get('reaction_emojis')[index]} `{k}`: {round(v,3)}\n"
+            index += 1
+        
+        embed = discord.Embed(
+            title='Review Message',
+            description=description,
+            color=0xff0000
+        )
+        embed.set_thumbnail(url=message.guild.icon_url_as(format="gif",static_format="png"))
+        review_message = await self.bot.get_channel(self.bot.config.get('review_channel')).send(embed=embed)
+        
+        for emoji in self.bot.config.get('reaction_emojis'):
+            await review_message.add_reaction(emoji)
+        
+        return review_message.id
+
+    def add_train_row(self, row: dict={'message': discord.Message, 'score': {'insult': int, 'severe_toxic': int, 'identity_hate': int, 'threat': int}}):
+        row = ([row['message'].content] + [x[1] for x in row['score'].items()])
         is_new_file = not os.path.exists("./input/new_train.csv")
             
         with open(r'./input/new_train.csv', 'a') as f:
@@ -88,8 +179,8 @@ class FlagScanner(commands.Cog):
         
         train_df = pd.read_csv('./input/train.csv')
         if os.path.exists("./input/new_train.csv"):
-            train_df = pd.concat([train_df,pd.read_csv('./input/new_train.csv')], axis=0, ignore_index=True)
-            self.bot.logger.info(train_df.tail(2))
+            train_df = pd.concat([pd.read_csv('./input/new_train.csv'),train_df], axis=0, ignore_index=True)
+            
         X = train_df.comment_text
 
         data = {'comment_text': [x.content for x in test_messages]}
@@ -97,11 +188,10 @@ class FlagScanner(commands.Cog):
         test_df['comment_text'] = test_df['comment_text'].map(lambda com : self.clean_text(com))
 
         vect = TfidfVectorizer(ngram_range=(1,2), stop_words='english',
-                    min_df=3, max_df=0.9, use_idf=1,
-               smooth_idf=1, sublinear_tf=1)
+                    min_df=3, max_df=0.9, use_idf=1, smooth_idf=1, sublinear_tf=1)
         message_contents = test_df.comment_text
-        test_X = vect.fit_transform(message_contents)
-        train_X = vect.transform(X)
+        train_X = vect.fit_transform(X)
+        test_X = vect.transform(message_contents)
 
         logreg = LogisticRegression(C=12.0, solver='liblinear')
         results = dict()
@@ -122,6 +212,7 @@ class FlagScanner(commands.Cog):
             if any([value > 0.5 for key,value in v.items()]):
                 flagged_messages.append({'message':test_messages[k],'score':v})
         self.bot.logger.info(f"Flagged {len(flagged_messages)} messages.")
+        self.review_queue = flagged_messages + self.review_queue
         embeds = []
         if len(flagged_messages) == 0: return []
         for flagged_message in flagged_messages:
@@ -141,24 +232,6 @@ class FlagScanner(commands.Cog):
         if len(flagged_messages) > 0:
             return embeds
             
-    @commands.is_owner()
-    @commands.command("extract_messages")
-    async def extract_messages_command(self, ctx: commands.Context, channel_id: str='', count: int=100):
-        channel = self.bot.get_channel(int(channel_id))
-        messages = await channel.history(limit=count).flatten()
-        self.messages += messages
-        self.bot.logger.info(f"Added message {len(self.messages)}/{20}")
-        async with self.compute_lock:
-            if len(self.messages) >= 50:    
-                flags = await asyncio.get_event_loop().run_in_executor(None, self.compute_messages)
-                if len(flags) == 0: return
-                for flag in flags:
-                    await self.bot.get_channel(self.bot.config.get('flag_channel')).send(embed=flag)
-
-    @commands.Cog.listener()
-    async def on_ready(self):
-        self.bot.remove_command('help')
-
 def setup(bot):
     bot.add_cog(FlagScanner(bot))
 
