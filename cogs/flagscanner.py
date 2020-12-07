@@ -171,8 +171,8 @@ class FlagScanner(commands.Cog):
         
         async with self.compute_lock:
             self.messages += messages
-            self.bot.logger.info(f"Added message {len(self.messages)}/{20}")
-            if len(self.messages) >= 20:
+            self.bot.logger.info(f"Added message {len(self.messages)}/{100}")
+            if len(self.messages) >= 100:
                 flags,new_reviews = await asyncio.get_event_loop().run_in_executor(None, self.compute_messages)
                 if len(flags) == 0: return
                 for flag in flags:
