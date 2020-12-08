@@ -280,7 +280,7 @@ class FlagScanner(commands.Cog):
         max_reviews_size = 10
         async with self.queue_lock:
             for r in new_reviews:
-                r['message'] = r['message'].content if type(r['message']) is not str else r['message']
+                r['message'] = clean_text(r['message'].content if type(r['message']) is not str else r['message'])
             self.review_queue = new_reviews + self.review_queue
             if len(self.in_review) < max_reviews_size and len(self.review_queue) > 0:    
                 for i in range(min(max_reviews_size-len(self.in_review),len(self.review_queue))):
