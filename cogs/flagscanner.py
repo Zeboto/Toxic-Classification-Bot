@@ -70,11 +70,11 @@ class FlagScanner(commands.Cog):
         # Keep queue messages loaded
         for m in self.in_review:
             if m['review'].id not in [x.id for x in self.bot.cached_messages]:
-                await fetch_message(m['review'].id)
+                await self.bot.get_channel(self.bot.config.get('review_channel')).fetch_message(m['review'].id)
 
         # Keep sanitize message loaded
         if self.sanitize_message is not None and self.sanitize_message['sanitize'].id not in [x.id for x in self.bot.cached_messages]:
-            await fetch_message(self.sanitize_message['sanitize'].id)
+            await self.bot.get_channel(self.bot.config.get('review_channel')).fetch_message(self.sanitize_message['sanitize'].id)
         
         async with self.compute_lock:
             # Add messages to processing queue
