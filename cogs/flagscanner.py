@@ -218,9 +218,13 @@ class FlagScanner(commands.Cog):
                 results[i][label] = x
         self.bot.logger.info(f"Took {(datetime.now()-start).total_seconds()} seconds!")
         flagged_messages = []
+        random_non_flagged_messages = []
         for k,v in results.items():
             if any([value > 0.5 for key,value in v.items()]):
                 flagged_messages.append({'message':test_messages[k],'score':v})
+            elif (random.random() <= 0.01):
+                random_non_flagged_messages.append({'message':test_messages[k],'score':v})
+
         self.bot.logger.info(f"Flagged {len(flagged_messages)} messages.")
         embeds = []
         if len(flagged_messages) == 0: return []
@@ -239,7 +243,7 @@ class FlagScanner(commands.Cog):
             embed.set_thumbnail(url=message.guild.icon_url_as(format="gif",static_format="png"))
             embeds.append(embed)
         if len(flagged_messages) > 0:
-            return embeds, flagged_messages
+            return embeds, (flagged_messages + random_non_flagged_messages)
         
     def add_train_row(self, row: dict={'message': str, 'score': {'insult': int, 'severe_toxic': int, 'identity_hate': int, 'threat': int}}):
         row = ([row['message']] + [x[1] for x in row['score'].items()])
