@@ -18,9 +18,9 @@ def in_sanitize_channel(obj, ctx):
 def clean_text(text: str):
         text = text.lower()
         text = re.sub(r"<a?:(\w{2,32}):\d{15,21}>", "", text) # Clear discord emoji
-        text = re.sub(r"<@!?\d{15,21}>", "__USER__", text) # User mentions
-        text = re.sub(r"<@&\d{15,21}>", "__ROLE__", text) # Role mentions
-        text = re.sub(r"<#\d{15,21}>", "__CHANNEL__", text) # Channel mentions
+        text = re.sub(r"<@!?\d{15,21}>", "__user__", text) # User mentions
+        text = re.sub(r"<@&\d{15,21}>", "__role__", text) # Role mentions
+        text = re.sub(r"<#\d{15,21}>", "__channel__", text) # Channel mentions
         text = re.sub(r"what's", "what is ", text)
         text = re.sub(r"\'s", " ", text)
         text = re.sub(r"\'ve", " have ", text)
