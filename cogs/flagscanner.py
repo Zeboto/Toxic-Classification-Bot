@@ -220,6 +220,8 @@ class FlagScanner(commands.Cog):
         flagged_messages = []
         random_non_flagged_messages = []
         for k,v in results.items():
+            if clean_text(test_messages[k].content) == "":
+                continue
             if any([value > 0.5 for key,value in v.items()]):
                 flagged_messages.append({'message':test_messages[k],'score':v})
             elif (random.random() <= 0.01):
