@@ -263,7 +263,7 @@ class FlagScanner(commands.Cog):
         description = f"**Message**: {message}\n\n__**Scores:**__\n"
         index = 0
         for k,v in scores.items():
-            description += f"{self.bot.config.get('reaction_emojis')[index]} `{k}`: {round(v,3)}\n"
+            description += f"{self.bot.config.get('reaction_emojis')[index]} `{k}`: ||{round(v,3)}||\n"
             index += 1
         
         embed = discord.Embed(
