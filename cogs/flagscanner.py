@@ -94,34 +94,38 @@ class FlagScanner(commands.Cog):
                 await self.add_reviews_to_queue(new_reviews)
 
     @commands.Cog.listener()
-    async def on_reaction_add(self, reaction: discord.Reaction, user: discord.Member):
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent ):
+        
         # Ignore reactions from the bot
-        if (user.id == self.bot.user.id): return
+        if (payload.user_id == self.bot.user.id): return
 
         # Ignore reactions not in review or sanitize channels
-        if not in_review_channel(self, reaction.message) and not in_sanitize_channel(self, reaction.message): return
+        if not in_review_channel(self, payload.channel_id) and not in_sanitize_channel(self, payload.channel_id): return
         
         self.bot.logger.info("Logged reaction")
-
+        
         emojis = self.bot.config.get('reaction_emojis')
+        message = await self.bot.get_channel(payload.channel_id).fetch_message(payload.message_id)
+        reaction = next(r for r in message.reactions if str(r.emoji) == str(payload.emoji))
+
 
         # Ignore feature scoring options
         if str(reaction) not in emojis[-4:]: return    
-
+        
         # Complete review when votes reached
-        if in_review_channel(self, reaction.message) and str(reaction) == emojis[-4] and reaction.count > 3:
+        if in_review_channel(self, message) and str(reaction) == emojis[-4] and reaction.count > 3:
             self.bot.logger.info("Sending review.")
             async with self.queue_lock:
-                review_message = next(x for x in self.in_review if x['review'].id == reaction.message.id)
+                review_message = next(x for x in self.in_review if x['review'].id == message.id)
                 self.in_review.pop(self.in_review.index(review_message))
-                reactions = reaction.message.reactions
+                reactions = message.reactions
                 for r in reactions:
                     if str(r) in emojis[:-4]:
                         i = emojis.index(str(r)) 
                         review_message['score'][self.cols_target[i]] = 1 if (r.count-1) >= math.ceil((reaction.count-1)*2/3) else 0
                 
                 self.add_train_row(review_message)
-                await reaction.message.delete()
+                await message.delete()
 
                 # Add new message to queue
                 if len(self.review_queue) > 0:
@@ -130,10 +134,10 @@ class FlagScanner(commands.Cog):
                     self.in_review.append(new_review)
         
         # Send to santization queue
-        if in_review_channel(self, reaction.message) and str(reaction) == emojis[-3]:
+        if in_review_channel(self, message) and str(reaction) == emojis[-3]:
             self.bot.logger.info("Sending to santization queue")
             async with self.queue_lock:
-                review_message = next(x for x in self.in_review if x['review'].id == reaction.message.id)
+                review_message = next(x for x in self.in_review if x['review'].id == message.id)
                 self.in_review.pop(self.in_review.index(review_message))
                 self.sanitize_queue.insert(0, review_message)
                 await review_message['review'].delete()
@@ -141,7 +145,7 @@ class FlagScanner(commands.Cog):
                     await self.create_new_sanitize()
         
         # Approve sanitize message
-        if in_sanitize_channel(self, reaction.message) and str(reaction) == emojis[-2]:
+        if in_sanitize_channel(self, message) and str(reaction) == emojis[-2]:
             sanitize = self.sanitize_message
             async with self.queue_lock:
                 self.sanitize_message = None
@@ -155,7 +159,7 @@ class FlagScanner(commands.Cog):
                 self.in_review.append(new_review)
         
         # Delete sanitize message 
-        if in_sanitize_channel(self, reaction.message) and str(reaction) == emojis[-1]:
+        if in_sanitize_channel(self, message) and str(reaction) == emojis[-1]:
             sanitize = self.sanitize_message
             async with self.queue_lock:
                 self.sanitize_message = None
@@ -193,16 +197,14 @@ class FlagScanner(commands.Cog):
             
         X = train_df.comment_text
 
-        data = {'comment_text': [x.content for x in test_messages]}
+        data = {'comment_text': [clean_text(x.content) for x in test_messages]}
         test_df = pd.DataFrame(data=data)
-        test_df['comment_text'] = test_df['comment_text'].map(lambda com : clean_text(com))
 
         vect = TfidfVectorizer(ngram_range=(1,2), stop_words='english',
-                    min_df=3, max_df=0.9, use_idf=1, smooth_idf=1, sublinear_tf=1)
+                    min_df=3, max_df=0.9, smooth_idf=1, sublinear_tf=1)
         message_contents = test_df.comment_text
         train_X = vect.fit_transform(X)
         test_X = vect.transform(message_contents)
-
         logreg = LogisticRegression(C=12.0, solver='liblinear')
         results = dict()
         for i in range(len(test_df)):
