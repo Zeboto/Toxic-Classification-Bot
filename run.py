@@ -37,7 +37,5 @@ token = config["token"]
 
 
 bot = FlagBot('f.', config=config)
-
 bot.load_extension("jishaku")
-bot.load_extension("cogs.flagscanner")
 bot.run(token)
