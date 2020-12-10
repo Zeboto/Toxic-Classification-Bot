@@ -30,7 +30,7 @@ class NLP(commands.Cog):
         self.bot.logger.info(f"1. Loading data took {(datetime.now()-start).total_seconds()} seconds!")
         
         start = datetime.now()
-        data = {'comment_text': [self.clean_text(x.content) for x in test_messages if len(x.content.split()) > 1]}
+        data = {'comment_text': [self.clean_text(x.content) for x in test_messages ]}
         test_df = pd.DataFrame(data=data)
         self.bot.logger.info(f"2. Cleaning data took {(datetime.now()-start).total_seconds()} seconds!")
         
@@ -110,6 +110,7 @@ class NLP(commands.Cog):
         text = re.sub('\W', ' ', text)
         text = re.sub('\s+', ' ', text)
         text = text.strip(' ')
+        text = text if len(text.split()) > 1 else ""
         return text
 def setup(bot):
     bot.add_cog(NLP(bot))
