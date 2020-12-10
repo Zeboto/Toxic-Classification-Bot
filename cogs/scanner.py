@@ -67,7 +67,7 @@ class Scanner(commands.Cog):
             # Run model
             flags,new_reviews = await asyncio.get_event_loop().run_in_executor(None, nlp_cog.compute_messages, test_messages)
             if reply is not None: await reply.edit(content=f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)\nFlagged {len(flags)} messages and added {len(new_reviews)} messages to the review queue.")
-            if len(flags) == 0:    
+            if len(flags) > 0:    
                 # Send flagged messages
                 for flag in flags:
                     await self.bot.get_channel(self.bot.config.get('flag_channel')).send(embed=flag)
