@@ -33,7 +33,7 @@ class SanitizeQueue(commands.Cog):
         if (message.author.id == self.bot.user.id): return
 
         if in_sanitize_channel(self, message):
-            await message.delete()
+            await message.delete(delay=1.0)
             await self.update_sanitize(message)
 
     @commands.Cog.listener()
