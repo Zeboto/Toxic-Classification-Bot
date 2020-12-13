@@ -137,14 +137,13 @@ class SanitizeQueue(commands.Cog):
                 self.sanitize_message['mode'] = "search"
                 await self.sanitize_message['sanitize'].edit(embed=embed)
             elif message.content in self.sanitize_message['message'] and self.sanitize_message['mode'] == 'search':            
-                old_embed = self.sanitize_message['sanitize'].embeds[0]
+                old_embed = self.sanitize_message['sanitize'].embeds[0]              
                 embed = discord.Embed(
-                    title=f'Replacing \"{message.content}\"',
-                    description=old_embed.description.replace(message.content, "[REPLACE]"),
-                    color=0xffff00
+                    title='Sanitize message',
+                    description=old_embed.description.replace(message.content, "__name__"),
+                    color=0xffa500
                 )
                 embed.set_footer(text='Type the new word you want to replace it with.')
-                self.sanitize_message['mode'] = 'replace'
                 await self.sanitize_message['sanitize'].edit(embed=embed)
             elif message.content not in self.sanitize_message['message'] and self.sanitize_message['mode'] == 'search':
                 old_embed = self.sanitize_message['sanitize'].embeds[0]
@@ -154,16 +153,6 @@ class SanitizeQueue(commands.Cog):
                     color=0xff0000
                 )
                 embed.set_footer(text='Type the word or phrase you wish to replace.')
-                await self.sanitize_message['sanitize'].edit(embed=embed)
-            elif self.sanitize_message['mode'] == 'replace': 
-                old_embed = self.sanitize_message['sanitize'].embeds[0]
-                embed = discord.Embed(
-                    title='Sanitize message',
-                    description=old_embed.description.replace("[REPLACE]",message.content),
-                    color=0xffa500
-                )
-                embed.set_footer(text='Type the word or phrase you wish to replace.')
-                self.sanitize_message['mode'] = 'search'
                 await self.sanitize_message['sanitize'].edit(embed=embed)
             
 def setup(bot):
