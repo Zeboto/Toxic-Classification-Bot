@@ -123,7 +123,7 @@ class ReviewQueue(commands.Cog):
         return review_message
 
     async def add_reviews_to_queue(self, new_reviews):
-        max_reviews_size = 10
+        max_reviews_size = 50
         async with self.review_lock:
             nlp_cog = self.bot.get_cog('NLP')
             if nlp_cog is None:
