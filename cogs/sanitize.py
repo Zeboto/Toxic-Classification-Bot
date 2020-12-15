@@ -108,7 +108,8 @@ class SanitizeQueue(commands.Cog):
 
     async def update_sanitize(self, message: discord.Message):
         async with self.sanitize_lock:
-            if message.content.lower() == 'cancel':
+            content = message.content.lower()
+            if content == 'cancel':
                 self.sanitize_message['mode'] == 'search'
                 embed = discord.Embed(
                     title='Sanitize message',
@@ -117,7 +118,7 @@ class SanitizeQueue(commands.Cog):
                 )
                 embed.set_footer(text='Type the word or phrase you wish to replace.')
                 await self.sanitize_message['sanitize'].edit(embed=embed)
-            elif message.content.lower() == 'rewrite':
+            elif content == 'rewrite':
                 self.sanitize_message['mode'] = "rewrite"
                 old_embed = self.sanitize_message['sanitize'].embeds[0]
                 embed = discord.Embed(
@@ -130,22 +131,22 @@ class SanitizeQueue(commands.Cog):
             elif self.sanitize_message['mode'] == 'rewrite':
                 embed = discord.Embed(
                     title='Sanitize message',
-                    description=message.content,
+                    description=content,
                     color=0xffa500
                 )
                 embed.set_footer(text='Type the word or phrase you wish to replace.')
                 self.sanitize_message['mode'] = "search"
                 await self.sanitize_message['sanitize'].edit(embed=embed)
-            elif message.content in self.sanitize_message['message'] and self.sanitize_message['mode'] == 'search':            
+            elif content in self.sanitize_message['message'] and self.sanitize_message['mode'] == 'search':            
                 old_embed = self.sanitize_message['sanitize'].embeds[0]              
                 embed = discord.Embed(
                     title='Sanitize message',
-                    description=old_embed.description.replace(message.content, "__name__"),
+                    description=old_embed.description.replace(content, "__name__"),
                     color=0xffa500
                 )
                 embed.set_footer(text='Type the new word you want to replace it with.')
                 await self.sanitize_message['sanitize'].edit(embed=embed)
-            elif message.content not in self.sanitize_message['message'] and self.sanitize_message['mode'] == 'search':
+            elif content not in self.sanitize_message['message'] and self.sanitize_message['mode'] == 'search':
                 old_embed = self.sanitize_message['sanitize'].embeds[0]
                 embed = discord.Embed(
                     title='Not Found! Try again.',
