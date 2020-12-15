@@ -1,5 +1,7 @@
 token = "token"
 
+bot_server = 784984468251082752
+
 scan_channels = [
   289482554250100736
 ]
@@ -26,3 +28,5 @@ reaction_emojis = [
   '<:greentick:567088336166977536>',
   '<:redtick:567088349484023818>'
 ]
+
+blacklist = []
