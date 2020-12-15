@@ -91,6 +91,8 @@ class NLP(commands.Cog):
         return embeds, (flagged_messages + random_non_flagged_messages)
         
     def clean_text(self, text: str):
+        for phrase in self.bot.config['blacklist']:
+            text = re.sub(phrase, "__name__", text)
         text = text.lower()
         text = re.sub(r"https?://(?:[a-zA-Z]|[0-9]|[#-_]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+", "__url__", text) # URLs
         text = re.sub(r"<a?:(\w{2,32}):\d{15,21}>", "", text) # Clear discord emoji
@@ -109,8 +111,6 @@ class NLP(commands.Cog):
         text = re.sub(r"\'scuse", " excuse ", text)
         text = re.sub('\W', ' ', text)
         text = re.sub('\s+', ' ', text)
-        for phrase in self.bot.config['blacklist']:
-            text = text.replace(phrase.lower(), "__name__")
         text = text.strip(' ')
         text = text if len(text.split()) > 1 else ""
         return text
