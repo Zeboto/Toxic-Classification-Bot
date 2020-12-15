@@ -86,7 +86,7 @@ class NLP(commands.Cog):
                 description=description,
                 color=0xff0000
             )
-            embed.set_thumbnail(url=message.guild.icon_url_as(format="gif",static_format="png"))
+            embed.set_thumbnail(url=message.guild.icon_url_as(static_format="png"))
             embeds.append(embed)
         return embeds, (flagged_messages + random_non_flagged_messages)
         
