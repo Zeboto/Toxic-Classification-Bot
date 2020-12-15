@@ -91,14 +91,18 @@ class NLP(commands.Cog):
         return embeds, (flagged_messages + random_non_flagged_messages)
         
     def clean_text(self, text: str):
+        
         for phrase in self.bot.config['blacklist']:
-            text = re.sub(phrase, "__name__", text)
+            text = re.sub(phrase, "__name__", text, flags=re.IGNORECASE)
+            
         text = text.lower()
+       
         text = re.sub(r"https?://(?:[a-zA-Z]|[0-9]|[#-_]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+", "__url__", text) # URLs
         text = re.sub(r"<a?:(\w{2,32}):\d{15,21}>", "", text) # Clear discord emoji
         text = re.sub(r"<@!?\d{15,21}>", "__user__", text) # User mentions
         text = re.sub(r"<@&\d{15,21}>", "__role__", text) # Role mentions
         text = re.sub(r"<#\d{15,21}>", "__channel__", text) # Channel mentions
+        
         text = re.sub(r"what's", "what is ", text)
         text = re.sub(r"\'s", " ", text)
         text = re.sub(r"\'ve", " have ", text)
@@ -111,8 +115,10 @@ class NLP(commands.Cog):
         text = re.sub(r"\'scuse", " excuse ", text)
         text = re.sub('\W', ' ', text)
         text = re.sub('\s+', ' ', text)
+        
         text = text.strip(' ')
-        text = text if len(text.split()) > 1 else ""
+        text = text if len(text.split()) > 1 else "" # If text only includes one word, return empty str
+        
         return text
 def setup(bot):
     bot.add_cog(NLP(bot))
