@@ -109,6 +109,8 @@ class NLP(commands.Cog):
         text = re.sub(r"\'scuse", " excuse ", text)
         text = re.sub('\W', ' ', text)
         text = re.sub('\s+', ' ', text)
+        for phrase in self.bot.config['blacklist']:
+            text = text.replace(phrase.lower(), "__name__")
         text = text.strip(' ')
         text = text if len(text.split()) > 1 else ""
         return text
