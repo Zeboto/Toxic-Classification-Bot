@@ -43,14 +43,11 @@ class ReviewQueue(commands.Cog):
         if not in_review_channel(self, payload.channel_id): return
         
         self.bot.logger.info("Logged reaction")
-        self.bot.logger.info(payload)
+
         channel = self.bot.get_channel(payload.channel_id)
-        self.bot.logger.info(channel)
         message = await channel.fetch_message(payload.message_id)
-        self.bot.logger.info(message)
-        reaction = [r for r in message.reactions if str(r.emoji) == str(payload.emoji)]
-        self.bot.logger.info(reaction)
-        reaction = reaction[0]
+        reaction = [r for r in message.reactions if str(r.emoji) == str(payload.emoji)][0]
+
 
         emojis = self.bot.config.get('reaction_emojis')
         # Ignore feature scoring options
@@ -91,7 +88,7 @@ class ReviewQueue(commands.Cog):
                 await review_message['review'].delete()
                 
         
-    def add_train_row(self, row: dict={'message': str, 'score': {'insult': int, 'severe_toxic': int, 'identity_hate': int, 'threat': int}}):
+    def add_train_row(self, row: dict={'message': str, 'score': dict}):
         row = ([row['message']] + [x[1] for x in row['score'].items()])
         is_new_file = not os.path.exists("./input/new_train.csv")
             
