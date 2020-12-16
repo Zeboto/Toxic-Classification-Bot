@@ -23,7 +23,7 @@ class ReviewQueue(commands.Cog):
         self.in_review = []
         self.review_lock = asyncio.Lock()
         self.messages = []
-        self.cols_target = ['insult','severe_toxic','identity_hate','threat']
+        self.cols_target = ['insult','severe_toxic','identity_hate','threat','nsfw']
         asyncio.create_task(self.clean_channel())
 
     

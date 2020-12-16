@@ -14,7 +14,7 @@ class NLP(commands.Cog):
     def __init__(self, bot):
         super().__init__()
         self.bot = bot
-        self.cols_target = ['insult','severe_toxic','identity_hate','threat']
+        self.cols_target = ['insult','severe_toxic','identity_hate','threat','nsfw']
     
     def compute_messages(self, test_messages):
         self.bot.logger.info([x.content for x in test_messages])
@@ -26,12 +26,15 @@ class NLP(commands.Cog):
         if os.path.exists("./input/new_train.csv"):
             train_df = pd.concat([pd.read_csv('./input/new_train.csv'),train_df], axis=0, ignore_index=True)
         
+        missing_labels = train_df.columns[train_df.isna().any()].tolist()
         X = train_df.comment_text
         self.bot.logger.info(f"1. Loading data took {(datetime.now()-start).total_seconds()} seconds!")
         
         start = datetime.now()
         data = {'comment_text': [self.clean_text(x.content) for x in test_messages ]}
         test_df = pd.DataFrame(data=data)
+        
+        
         self.bot.logger.info(f"2. Cleaning data took {(datetime.now()-start).total_seconds()} seconds!")
         
         start = datetime.now()
@@ -47,14 +50,23 @@ class NLP(commands.Cog):
         for i in range(len(test_df)):
             results[i] = {}
         for label in self.cols_target:
+            label_start = datetime.now()
             self.bot.logger.info('... Processing {}'.format(label))
-            y = train_df[label]
+            label_train_X = train_X
+            label_train_df = train_df
+
+            if label in missing_labels:
+                label_train_df = train_df.dropna(subset=[label])
+                label_train_X = vect.transform(label_train_df.comment_text)
+
+            y = label_train_df[label]
             # train the model using X_dtm & y
-            logreg.fit(train_X, y)
+            logreg.fit(label_train_X, y)
             # compute the predicted probabilities for X_test_dtm
             test_y_prob = logreg.predict_proba(test_X)[:,1]
             for i,x in enumerate(test_y_prob):
                 results[i][label] = x
+            self.bot.logger.info(f"Processing {label} took {(datetime.now()-label_start).total_seconds()} seconds!")
         self.bot.logger.info(f"4. Building and testing model took {(datetime.now()-start).total_seconds()} seconds!")
         
         start = datetime.now()
