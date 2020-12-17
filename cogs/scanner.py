@@ -70,8 +70,16 @@ class Scanner(commands.Cog):
             if reply is not None: await reply.edit(content=f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)\n3. Running model on {len(test_messages)} messages...")
             start = datetime.now()
             # Run model
-            flags,new_reviews = await asyncio.get_event_loop().run_in_executor(None, nlp_cog.compute_messages, test_messages)
-            if reply is not None: await reply.edit(content=f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)\n>Flagged {len(flags)} messages and selected {len(new_reviews)} messages for the review queue.\n4. Sending flagged messages to <#{self.bot.config.get('flag_channel')}>...")
+            flags,new_reviews,logs = await asyncio.get_event_loop().run_in_executor(None, nlp_cog.compute_messages, test_messages)
+            if reply is not None: 
+                
+                content = f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)"
+                for l in logs:
+                    content += f"\n\t{l}"
+                content += f"\n>Flagged {len(flags)} messages and selected {len(new_reviews)} messages for the review queue."
+                content += f"\n4. Sending flagged messages to <#{self.bot.config.get('flag_channel')}>..."
+                await reply.edit(content=content)
+            
             start = datetime.now()
             if len(flags) > 0:    
                 # Send flagged messages

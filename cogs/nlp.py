@@ -19,7 +19,7 @@ class NLP(commands.Cog):
     def compute_messages(self, test_messages):
         self.bot.logger.info([x.content for x in test_messages])
         self.bot.logger.info(f"Starting evaluation on {len(test_messages)} messages...")
-
+        logs = []
         begin = datetime.now()
         start = datetime.now()
         train_df = pd.read_csv('./input/train.csv')
@@ -28,22 +28,23 @@ class NLP(commands.Cog):
         
         missing_labels = train_df.columns[train_df.isna().any()].tolist()
         X = train_df.comment_text
-        self.bot.logger.info(f"1. Loading data took {(datetime.now()-start).total_seconds()} seconds!")
+        logs.append(f"1. Loading data took {(datetime.now()-start).total_seconds()} seconds!")
+        self.bot.logger.info(logs[-1])
         
         start = datetime.now()
         data = {'comment_text': [self.clean_text(x.content) for x in test_messages ]}
         test_df = pd.DataFrame(data=data)
         
         
-        self.bot.logger.info(f"2. Cleaning data took {(datetime.now()-start).total_seconds()} seconds!")
-        
+        logs.append(f"2. Cleaning data took {(datetime.now()-start).total_seconds()} seconds!")
+        self.bot.logger.info(logs[-1])
         start = datetime.now()
         vect = TfidfVectorizer(ngram_range=(1,2), min_df=3, smooth_idf=1, sublinear_tf=1)
         message_contents = test_df.comment_text
         train_X = vect.fit_transform(X)
         test_X = vect.transform(message_contents)
-        self.bot.logger.info(f"3. Fitting data took {(datetime.now()-start).total_seconds()} seconds!")
-
+        logs.append(f"3. Converting to TF-IDF took {(datetime.now()-start).total_seconds()} seconds!")
+        self.bot.logger.info(logs[-1])
         start = datetime.now()
         logreg = LogisticRegression(C=12.0, solver='liblinear')
         results = dict()
@@ -66,8 +67,11 @@ class NLP(commands.Cog):
             test_y_prob = logreg.predict_proba(test_X)[:,1]
             for i,x in enumerate(test_y_prob):
                 results[i][label] = x
-            self.bot.logger.info(f"Processing {label} took {(datetime.now()-label_start).total_seconds()} seconds!")
-        self.bot.logger.info(f"4. Building and testing model took {(datetime.now()-start).total_seconds()} seconds!")
+            logs.append(f"-`Processing {label} took {(datetime.now()-label_start).total_seconds()} seconds!`")
+            self.bot.logger.info(logs[-1])
+        
+        logs.insert(-len(self.cols_target),f"4. Building and testing model took {(datetime.now()-start).total_seconds()} seconds!")
+        self.bot.logger.info(logs[-len(self.cols_target)])
         
         start = datetime.now()
         flagged_messages = []
@@ -81,7 +85,8 @@ class NLP(commands.Cog):
                 random_non_flagged_messages.append({'message':test_messages[k],'score':v})
 
         self.bot.logger.info(f"Flagged {len(flagged_messages)} messages.")
-        self.bot.logger.info(f"5. Transforming data took {(datetime.now()-start).total_seconds()} seconds!")
+        logs.append(f"5. Transforming data took {(datetime.now()-start).total_seconds()} seconds!")
+        self.bot.logger.info(logs[-1])
         self.bot.logger.info(f"Took {(datetime.now()-begin).total_seconds()} seconds!")
         embeds = []
         
@@ -100,7 +105,7 @@ class NLP(commands.Cog):
             )
             embed.set_thumbnail(url=message.guild.icon_url_as(static_format="png"))
             embeds.append(embed)
-        return embeds, (flagged_messages + random_non_flagged_messages)
+        return embeds, (flagged_messages + random_non_flagged_messages),logs
         
     def clean_text(self, text: str):
         
