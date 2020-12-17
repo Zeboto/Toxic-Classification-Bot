@@ -90,7 +90,7 @@ class NLP(commands.Cog):
         self.bot.logger.info(f"Took {(datetime.now()-begin).total_seconds()} seconds!")
         embeds = []
         
-        if len(flagged_messages) == 0: return [], random_non_flagged_messages
+        if len(flagged_messages) == 0: return [], random_non_flagged_messages,logs
         for flagged_message in flagged_messages:
             message = flagged_message['message']
             scores = flagged_message['score']
