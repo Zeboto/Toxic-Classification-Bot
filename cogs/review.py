@@ -101,19 +101,17 @@ class ReviewQueue(commands.Cog):
     async def create_new_review(self, review: dict={'message': str, 'score': {'insult': int, 'severe_toxic': int, 'identity_hate': int, 'threat': int}}):
         message = review['message']
         scores = review['score']
-        index = 0
+        score_values = []
 
-        score_value = ''
-        for k,v in scores.items():
-            score_value += f"{self.bot.config.get('reaction_emojis')[index]} {round(v,2)}\n"
-            index += 1
+        for i, (k, v) in enumerate(scores.items()):
+            score_values.append(f"{self.bot.config.get('reaction_emojis')[i]} {round(v,2)}")
 
         embed = discord.Embed(
             title='Review Message',
             description=message,
             color=0xff0000
         )
-        embed.add_field(name='Scores', value=f'||{score_value}||')
+        embed.add_field(name='Scores', value='||' + ' '.join(score_values) + '||')
         review_message = await self.bot.get_channel(self.bot.config.get('review_channel')).send(embed=embed)
         
         for emoji in self.bot.config.get('reaction_emojis')[:-2]:
