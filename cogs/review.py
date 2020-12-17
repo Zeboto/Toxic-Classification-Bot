@@ -105,7 +105,7 @@ class ReviewQueue(commands.Cog):
 
         score_value = ''
         for k,v in scores.items():
-            scores += f"{self.bot.config.get('reaction_emojis')[index]} {round(v,2)}\n"
+            score_value += f"{self.bot.config.get('reaction_emojis')[index]} {round(v,2)}\n"
             index += 1
 
         embed = discord.Embed(
