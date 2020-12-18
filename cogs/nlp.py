@@ -110,7 +110,7 @@ class NLP(commands.Cog):
                 color=0xff0000
             )
 
-            embed.set_author(name=f'{str(message.author)} (`{message.author.id}`)', icon_url=message.author.icon_url)
+            embed.set_author(name=f'{str(message.author)} (`{message.author.id}`)', icon_url=message.author.avatar_url)
             embed.set_thumbnail(url=message.guild.icon_url_as(static_format="png"))
 
             embed.add_field(name='Scores', value=' '.join(score_values))
