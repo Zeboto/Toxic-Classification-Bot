@@ -1,6 +1,7 @@
 token = "token"
 
 min_scanned = 500
+flag_threshold = 0.5
 
 bot_server = 784984468251082752
 scan_channels = [

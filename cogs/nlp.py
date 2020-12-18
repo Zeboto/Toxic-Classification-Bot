@@ -17,8 +17,6 @@ class NLP(commands.Cog):
         self.cols_target = ['insult','severe_toxic','identity_hate','threat','nsfw']
     
     def compute_messages(self, test_messages):
-        FLAG_THRESHOLD = 0.5
-
         self.bot.logger.info([x.content for x in test_messages])
         self.bot.logger.info(f"Starting evaluation on {len(test_messages)} messages...")
         logs = []
@@ -81,7 +79,7 @@ class NLP(commands.Cog):
         for k,v in results.items():
             if self.clean_text(test_messages[k].content) == "":
                 continue
-            if any([value > FLAG_THRESHOLD for key,value in v.items()]):
+            if any([value > self.bot.config.get('flag_threshold') for key,value in v.items()]):
                 flagged_messages.append({'message':test_messages[k],'score':v})
             elif (random.random() <= 0.01):
                 random_non_flagged_messages.append({'message':test_messages[k],'score':v})
@@ -100,7 +98,7 @@ class NLP(commands.Cog):
 
             for i, (k, v) in enumerate(scores.items()):
                 score_val = round(v,2)
-                if v > FLAG_THRESHOLD: score_val = f'**{score_val}**'
+                if v > self.bot.config.get('flag_threshold'): score_val = f'**{score_val}**'
                 score_values.append(f"{self.bot.config.get('reaction_emojis')[i]} {score_val}")
 
             embed = discord.Embed(
