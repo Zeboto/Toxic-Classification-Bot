@@ -104,18 +104,18 @@ class NLP(commands.Cog):
                 score_values.append(f"{self.bot.config.get('reaction_emojis')[i]} {score_val}")
 
             embed = discord.Embed(
-                title=f'New Flagged Message in "{str(message.guild)}"',
+                title=f'New Flagged Message!',
                 description=message.content,
-                url=message.jump_url,
                 color=0xff0000
             )
 
-            embed.set_author(name=f'{str(message.author)} (`{message.author.id}`)', icon_url=message.author.avatar_url)
-            embed.set_thumbnail(url=message.guild.icon_url_as(static_format="png"))
-
+            embed.set_author(name=f'{str(message.guild)} / ({str(message.channel)})', icon_url=message.guild.icon_url_as(format='png'))
+            embed.add_field(name='\uFEFF', value=f'[Jump to message]({jump_url})') #  \uFEFF = ZERO WIDTH NO-BREAK SPACE
             embed.add_field(name='Scores', value=' '.join(score_values))
+            embed.set_footer(name=f'{str(message.author)} ({message.author.id})', icon_url=message.author.avatar_url_as(format='png'))
 
             embeds.append(embed)
+
         return embeds, (flagged_messages + random_non_flagged_messages),logs
         
     def clean_text(self, text: str):
