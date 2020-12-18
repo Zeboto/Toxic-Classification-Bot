@@ -39,7 +39,7 @@ class Scanner(commands.Cog):
 
     @commands.is_owner()
     @commands.command("extract_messages")
-    async def extract_messages_command(self, ctx: commands.Context, channel_id: str='', count: int=self.bot.config.get('min_scanned')):
+    async def extract_messages_command(self, ctx: commands.Context, channel_id: str='', count: int=500):
         channel = self.bot.get_channel(int(channel_id))
         reply = await ctx.send(f'1. Fetching {count} messages...')
         start = datetime.now()
