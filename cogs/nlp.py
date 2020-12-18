@@ -109,11 +109,11 @@ class NLP(commands.Cog):
                 color=0xff0000
             )
 
-            embed.set_author(name=f'{str(message.guild)} / {str(message.channel)}', icon_url=message.guild.icon_url_as(format='png'))
+            embed.set_author(name=f'{str(message.guild)} / #{str(message.channel)}', icon_url=message.guild.icon_url_as(format='png'))
             embed.set_footer(text=f'{str(message.author)} ({message.author.id})', icon_url=message.author.avatar_url_as(format='png'))
 
-            embed.add_field(name='\uFEFF', value=f'[Jump to message]({message.jump_url})', inline=False) #  \uFEFF = ZERO WIDTH NO-BREAK SPACE
-            embed.add_field(name='Scores', value=' '.join(score_values), inline=False)
+            embed.add_field(name='Scores', value=' '.join(score_values))
+            embed.add_field(name='\uFEFF', value=f'[Jump to message]({message.jump_url})') #  \uFEFF = ZERO WIDTH NO-BREAK SPACE
 
             embeds.append(embed)
 
