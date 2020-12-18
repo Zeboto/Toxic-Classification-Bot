@@ -17,6 +17,8 @@ class NLP(commands.Cog):
         self.cols_target = ['insult','severe_toxic','identity_hate','threat','nsfw']
     
     def compute_messages(self, test_messages):
+        FLAG_THRESHOLD = 0.5
+
         self.bot.logger.info([x.content for x in test_messages])
         self.bot.logger.info(f"Starting evaluation on {len(test_messages)} messages...")
         logs = []
@@ -79,7 +81,7 @@ class NLP(commands.Cog):
         for k,v in results.items():
             if self.clean_text(test_messages[k].content) == "":
                 continue
-            if any([value > 0.5 for key,value in v.items()]):
+            if any([value > FLAG_THRESHOLD for key,value in v.items()]):
                 flagged_messages.append({'message':test_messages[k],'score':v})
             elif (random.random() <= 0.01):
                 random_non_flagged_messages.append({'message':test_messages[k],'score':v})
@@ -94,16 +96,25 @@ class NLP(commands.Cog):
         for flagged_message in flagged_messages:
             message = flagged_message['message']
             scores = flagged_message['score']
-            description = f"**User**: ||{message.author.name}#{message.author.discriminator} (`{message.author.id}`)||\n**Message**: [{message.content}]({message.jump_url})\n\n__**Scores:**__\n"
-            for k,v in scores.items():
-                description += f"`{k}`: {round(v,3)}\n"
+            score_values = []
+
+            for i, (k, v) in enumerate(scores.items()):
+                score_val = round(v,2)
+                if v > FLAG_THRESHOLD: score_val = f'**{score_val}**'
+                score_values.append(f"{self.bot.config.get('reaction_emojis')[i]} {score_val}")
 
             embed = discord.Embed(
-                title='New Flagged Message!',
-                description=description,
+                title=f'New Flagged Message in "{str(message.guild)}"',
+                description=message.content,
+                url=message.jump_url,
                 color=0xff0000
             )
+
+            embed.set_author(name=f'{str(message.author)} (`{message.author.id}`)', icon_url=message.author.icon_url)
             embed.set_thumbnail(url=message.guild.icon_url_as(static_format="png"))
+
+            embed.add_field(name='Scores', value=' '.join(score_values))
+
             embeds.append(embed)
         return embeds, (flagged_messages + random_non_flagged_messages),logs
         
