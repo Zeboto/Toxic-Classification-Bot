@@ -39,7 +39,7 @@ class NLP(commands.Cog):
         logs.append(f"2. Cleaning data took {(datetime.now()-start).total_seconds()} seconds!")
         self.bot.logger.info(logs[-1])
         start = datetime.now()
-        vect = TfidfVectorizer(ngram_range=(1,2), min_df=3, smooth_idf=1, sublinear_tf=1)
+        vect = TfidfVectorizer(ngram_range=(1,2), stop_words='english', min_df=2, smooth_idf=1, sublinear_tf=1)
         message_contents = test_df.comment_text
         train_X = vect.fit_transform(X)
         test_X = vect.transform(message_contents)
