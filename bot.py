@@ -7,7 +7,6 @@ import traceback
 from pathlib import Path
 
 import aiohttp
-import asyncpg
 
 import discord
 from discord.ext import commands
