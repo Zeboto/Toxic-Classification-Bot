@@ -1,11 +1,11 @@
 token = "token"
 
-bot_server = 784984468251082752
+min_scanned = 500
 
+bot_server = 784984468251082752
 scan_channels = [
   289482554250100736
 ]
-
 flag_channel = 784984545131888711
 review_channel = 785310590498504754
 sanitize_channel = 785310898805407755
@@ -23,7 +23,7 @@ reaction_emojis = [
   '<:severe_toxic:788916179048595496>',
   '<:identity_hate:788916178734546955>',
   '<:threat:788916178784354345>',
-  '<:nsfw:788916179301433355>'
+  '<:nsfw:788916179301433355>',
   '📥',
   '🧹',
   '<:greentick:567088336166977536>',

@@ -33,13 +33,13 @@ class Scanner(commands.Cog):
         async with self.message_lock:
             # Add messages to processing queue
             self.messages += [message]
-            self.bot.logger.info(f"Added message {len(self.messages)}/{100}")
+            self.bot.logger.info(f"Added message {len(self.messages)}/{self.bot.config.get('min_scanned')}")
                 
         await self.process_messages()
 
     @commands.is_owner()
     @commands.command("extract_messages")
-    async def extract_messages_command(self, ctx: commands.Context, channel_id: str='', count: int=100):
+    async def extract_messages_command(self, ctx: commands.Context, channel_id: str='', count: int=self.bot.config.get('min_scanned')):
         channel = self.bot.get_channel(int(channel_id))
         reply = await ctx.send(f'1. Fetching {count} messages...')
         start = datetime.now()
@@ -50,7 +50,7 @@ class Scanner(commands.Cog):
         async with self.message_lock:
             # Add messages to processing queue
             self.messages += messages
-            self.bot.logger.info(f"Added messages {len(self.messages)}/{100}")
+            self.bot.logger.info(f"Added messages {len(self.messages)}/{self.bot.config.get('min_scanned')}")
         
         await self.process_messages(reply, start)
             
@@ -64,7 +64,9 @@ class Scanner(commands.Cog):
                 return
             # If enough messages were collected then start processing
             async with self.message_lock:
-                if len(self.messages) < 100 or (self.manual_check and reply is None): return
+                if len(self.messages) < self.bot.config.get('min_scanned') or (self.manual_check and reply is None): 
+                    if reply is not None: await reply.edit(content=f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)\n3. Not enough messages to scan {len(self.messages)}/{self.bot.config.get('min_scanned')}")
+                    return
                 test_messages =self.messages.copy()
                 self.messages = []
             if reply is not None: await reply.edit(content=f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)\n3. Running model on {len(test_messages)} messages...")
