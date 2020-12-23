@@ -1,5 +1,6 @@
 token = "token"
 
+max_reviews_size = 25
 min_scanned = 500
 queue_length = 1000
 flag_threshold = 0.5
