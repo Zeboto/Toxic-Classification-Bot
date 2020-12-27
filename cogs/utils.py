@@ -40,12 +40,19 @@ class Utils(commands.Cog):
     
     @commands.is_owner()
     @commands.command("reload_config")
-    async def reload_channel_command(self, ctx: commands.Context, channel_id: str=''):
+    async def reload_channel_command(self, ctx: commands.Context):
         with open('config.toml', 'r', encoding='utf-8') as f:
             data = toml.load(f)
         self.bot.config = data
         await ctx.send(f"Reloaded config.")
     
+    @commands.is_owner()
+    @commands.command("update_config")
+    async def update_config_command(self, ctx: commands.Context):
+        with open('config.toml', 'w') as f:
+            toml.dump(self.bot.config, f)
+        await ctx.send(f"Updated config.")
+        
     @commands.check(check_granted_server)
     @commands.command("blacklist", aliases=['bl'])
     async def blacklist_command(self, ctx: commands.Context, *, phrase: str=''):
