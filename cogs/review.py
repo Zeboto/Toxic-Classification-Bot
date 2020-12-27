@@ -50,11 +50,14 @@ class ReviewQueue(commands.Cog):
 
 
         emojis = self.bot.config.get('reaction_emojis')
+        min_votes = self.bot.config.get('min_votes')
         # Ignore feature scoring options
         if str(reaction) not in emojis[-4:]: return    
         
+
+
         # Complete review when votes reached
-        if in_review_channel(self, message) and str(reaction) == emojis[-4] and reaction.count > 3:
+        if in_review_channel(self, message) and str(reaction) == emojis[-4] and reaction.count > min_votes:
             self.bot.logger.info("Sending review.")
             async with self.review_lock:
                 review_message = next(x for x in self.in_review if x['review'].id == message.id)
