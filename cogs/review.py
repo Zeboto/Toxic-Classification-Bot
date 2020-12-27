@@ -86,6 +86,10 @@ class ReviewQueue(commands.Cog):
                 self.in_review.pop(self.in_review.index(review_message))
                 await sanitize_cog.add_to_sanitize_queue(review_message)
                 await review_message['review'].delete()
+                if len(self.review_queue) > 0:
+                    new_review = self.review_queue.pop()
+                    new_review['review'] = await self.create_new_review(new_review)
+                    self.in_review.append(new_review)
                 
         
     def add_train_row(self, row: dict={'message': str, 'score': dict}):
