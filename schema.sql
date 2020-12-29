@@ -57,12 +57,12 @@ CREATE TABLE IF NOT EXISTS infractions (
 CREATE TABLE IF NOT EXISTS reviewers (
     -- User's Discord ID
     user_id BIGINT PRIMARY KEY,
-
+    UNIQUE(user_id),
     -- Whether this reviwer is active
     active BOOLEAN DEFAULT true,
 
     -- The review channel the user is connected to
-    channel_id BIGINT,
+    channel_id BIGINT NOT NULL,
 
     -- Date this reviwer was created
     date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
