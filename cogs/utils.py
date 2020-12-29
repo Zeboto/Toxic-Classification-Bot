@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import discord
 from discord.ext import commands
 from utils.checks import check_granted_server
-
+from asyncpg.exceptions import UniqueViolationError
 
 
 class Rollback(Exception):
@@ -25,18 +25,27 @@ class Utils(commands.Cog):
     @commands.check(check_granted_server)
     @commands.command("add_channel")
     async def add_channel_command(self, ctx: commands.Context, channel_id: int=0):
-        with open('config.toml', 'r', encoding='utf-8') as f:
-            data = toml.load(f)
         channel = self.bot.get_channel(channel_id)
         if not channel:
             await ctx.send("Channel not found!")
             return
-        data['scan_channels'].append(channel_id)
-        self.bot.config = data
-        with open('config.toml', 'w') as f:
-            toml.dump(data, f)
+        async with self.bot.db.acquire() as conn:
+            async with conn.transaction():
+                try:
+                    await conn.fetch(
+                        """
+                        INSERT INTO scan_channels (channel_id, server_id)
+                            VALUES ($1, $2)
+                        """,
+                        channel.id,
+                        channel.guild.id
+                    )
+                    await ctx.send(f"Channel `{channel.name}` from **{channel.guild.name}** added to scan list.")
+                except UniqueViolationError:
+                    await ctx.send(f"{ctx.author.mention} Sorry, that channel already exists.")
+                    pass
         
-        await ctx.send(f"Channel `{channel.name}` from **{channel.guild.name}** added to scan list.")
+        
     
     @commands.is_owner()
     @commands.command("reload_config")
