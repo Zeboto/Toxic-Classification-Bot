@@ -64,14 +64,14 @@ class FlagBot(commands.Bot):
         ignore = {'__pycache__', '__init__'}
 
         exts = [
-            p.stem for p in Path(directory).resolve().iterdir()
+            '.'.join(list(p.parts)).replace('.py','') for p in list(Path(directory).glob('**/*.py'))
             if p.stem not in ignore
         ]
 
         self.logger.info('Loading extensions: %s', exts)
 
         for ext in exts:
-            self.load_extension('cogs.' + ext)
+            self.load_extension(ext)
 
         self.to_load = list(self.extensions.keys()).copy()
         self.logger.info('To load: %s', self.to_load)
