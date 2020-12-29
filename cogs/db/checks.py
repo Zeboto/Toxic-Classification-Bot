@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 import asyncio
-import toml
 from datetime import datetime, timedelta
 
 import discord
+import toml
 from discord.ext import commands
-from utils.checks import check_granted_server
-
 
 
 class Rollback(Exception):
