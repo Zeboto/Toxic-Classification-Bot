@@ -26,6 +26,16 @@ class DBChecks(commands.Cog):
                 channel_id
             )
             return record['count'] != 0
+    
+    async def is_reviewer(self, user_id: int):
+        async with self.bot.db.acquire() as conn:
+            record = await conn.fetchrow(
+                """
+                SELECT COUNT(*) FROM reviewers WHERE user_id = $1 
+                """,
+                user_id
+            )
+            return record['count'] != 0
             
 def setup(bot):
     bot.add_cog(DBChecks(bot))
