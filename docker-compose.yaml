@@ -1,9 +1,23 @@
 version: '2'
+volumes:
+  flagbot-postgresql:
+    external: false
 
 services:
 
   bot:
     build: .
+    depends_on:
+      - db
     volumes:
       - ./:/app
+
+  db:
+    image: postgres:10-alpine
+    volumes:
+      - flagbot-postgresql:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust # Postgres updated their latest images on dockerhub to require passwords now, add this to revert to previous behavior.
+
 
