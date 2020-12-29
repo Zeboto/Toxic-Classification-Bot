@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import asyncio
+import asyncpg
 import hashlib
 import logging
 import traceback
@@ -18,7 +19,9 @@ class FlagBot(commands.Bot):
         super().__init__(*args, **kwargs)
         
         self.config = config or {}
-        
+        self.db = None
+        self.db_available = asyncio.Event()
+
         #: OAuth2 application owner.
         self.owner: discord.User = None
 
@@ -30,6 +33,18 @@ class FlagBot(commands.Bot):
         self.remove_command('help')
 
         self.session = aiohttp.ClientSession(loop=self.loop)
+        self.loop.create_task(self.acquire_pool())
+
+    async def acquire_pool(self):
+        credentials = self.config.pop("database")
+
+        if not credentials:
+            self.logger.critical("Cannot connect to db, no credentials!")
+            await self.logout()
+
+        self.db = await asyncpg.create_pool(**credentials)
+        self.db_available.set()
+
     async def on_ready(self):
         self.discover_exts('cogs')
         self.logger.info('Ready! Logged in as %s (%d)', self.user, self.user.id)
@@ -62,7 +77,7 @@ class FlagBot(commands.Bot):
     def discover_exts(self, directory: str):
         """Loads all extensions from a directory."""
         ignore = {'__pycache__', '__init__'}
-
+        
         exts = [
             '.'.join(list(p.parts)).replace('.py','') for p in list(Path(directory).glob('**/*.py'))
             if p.stem not in ignore
