@@ -62,13 +62,9 @@ class SanitizeQueue(commands.Cog):
             sanitize = self.sanitize_message
             async with self.sanitize_lock:
                 self.sanitize_message = None
-            sanitize['message'] = sanitize['sanitize'].embeds[0].description
-
-            review_queue_cog = self.bot.get_cog('ReviewQueue')
-            if review_queue_cog is None:
-                self.bot.logger.info("The cog \"ReviewQueue\" is not loaded")
-                return
-            await review_queue_cog.add_reviews_to_queue([sanitize])
+            sanitize['clean_content'] = sanitize['sanitize'].embeds[0].description
+            conn = self.bot.get_db()
+            await conn.edit_review_message(sanitize['review_id'], sanitize['clean_content'])
             await sanitize['sanitize'].delete()
             if len(self.sanitize_queue) > 0:
                 await self.create_new_sanitize()
@@ -82,15 +78,30 @@ class SanitizeQueue(commands.Cog):
             if len(self.sanitize_queue) > 0:
                 await self.create_new_sanitize()
     async def add_to_sanitize_queue(self, review_message):
+        conn = self.bot.get_db()
+        msgs_to_edit = await conn.set_sanitize(review_message['review_id'])
+        review_cog = self.bot.get_cog('ReviewQueue')
+        if review_cog is None:
+            self.bot.logger.info("The cog \"ReviewQueue\" is not loaded")
+            return
+        for m in msgs_to_edit:
+            self.bot.logger.info(m)
+            msg = await self.bot.get_channel(m['channel_id']).fetch_message(m['message_id'])
+            member = self.bot.get_user(m['user_id']) or await self.bot.fetch_user(m['user_id'])
+            await review_cog.change_message(msg,member)
+        
+        
+        await review_cog.fill_empty_queues()
+
         async with self.sanitize_lock:
-            self.sanitize_queue.insert(0, review_message)
+            self.sanitize_queue.insert(0, dict(review_message))
         if self.sanitize_message is None:
                 await self.create_new_sanitize()
     async def create_new_sanitize(self):
         async with self.sanitize_lock:
             self.bot.logger.info("Creating new sanitize")
             sanitize = self.sanitize_queue.pop()
-            message = sanitize['message'] 
+            message = sanitize['clean_content'] 
             
             embed = discord.Embed(
                 title='Sanitize Message',
@@ -113,7 +124,7 @@ class SanitizeQueue(commands.Cog):
                 self.sanitize_message['mode'] == 'search'
                 embed = discord.Embed(
                     title='Sanitize message',
-                    description=self.sanitize_message['message'],
+                    description=self.sanitize_message['clean_content'],
                     color=0xffa500
                 )
                 embed.set_footer(text='Type the word or phrase you wish to replace.')
@@ -137,7 +148,7 @@ class SanitizeQueue(commands.Cog):
                 embed.set_footer(text='Type the word or phrase you wish to replace.')
                 self.sanitize_message['mode'] = "search"
                 await self.sanitize_message['sanitize'].edit(embed=embed)
-            elif content in self.sanitize_message['message'] and self.sanitize_message['mode'] == 'search':            
+            elif content in self.sanitize_message['clean_content'] and self.sanitize_message['mode'] == 'search':            
                 old_embed = self.sanitize_message['sanitize'].embeds[0]              
                 embed = discord.Embed(
                     title='Sanitize message',
@@ -146,7 +157,7 @@ class SanitizeQueue(commands.Cog):
                 )
                 embed.set_footer(text='Type the new word you want to replace it with.')
                 await self.sanitize_message['sanitize'].edit(embed=embed)
-            elif content not in self.sanitize_message['message'] and self.sanitize_message['mode'] == 'search':
+            elif content not in self.sanitize_message['clean_content'] and self.sanitize_message['mode'] == 'search':
                 old_embed = self.sanitize_message['sanitize'].embeds[0]
                 embed = discord.Embed(
                     title='Not Found! Try again.',

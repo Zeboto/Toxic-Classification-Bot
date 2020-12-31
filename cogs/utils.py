@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 import discord
 from discord.ext import commands
-from utils.checks import check_granted_server
+from utils.checks import check_granted_server, is_reviewer
 from asyncpg.exceptions import UniqueViolationError
 
 
@@ -44,21 +44,14 @@ class Utils(commands.Cog):
                 except UniqueViolationError:
                     await ctx.send(f"{ctx.author.mention} Sorry, that channel already exists.")
                     pass
-        
+        await self.bot.load_cache()
         
     @commands.check(check_granted_server)
     @commands.command("join_review")
     async def join_review_command(self, ctx: commands.Context):
-        db_utils = self.bot.get_cog('DBUtils')
-        if db_utils is None:
-            self.bot.logger.info("The cog \"DBUtils\" is not loaded")
-            return
-        db_check = self.bot.get_cog('DBChecks')
-        if db_check is None:
-            self.bot.logger.info("The cog \"DBChecks\" is not loaded")
-            return
+        conn = self.bot.get_db()
             
-        if await db_check.is_reviewer(ctx.author.id):
+        if is_reviewer(self, ctx.author.id):
             await ctx.send(f"{ctx.author.mention} You are already a reviewer.")
             return
 
@@ -73,6 +66,15 @@ class Utils(commands.Cog):
 
         await ctx.send(f"{ctx.author.mention} You can start reviewing at {channel.mention}.")
         
+        await self.bot.load_cache()
+
+        review_cog = self.bot.get_cog('ReviewQueue')
+        if review_cog is None:
+            self.bot.logger.info("The cog \"ReviewQueue\" is not loaded")
+            return
+        
+        await review_cog.fill_empty_queues()
+    
     @commands.is_owner()
     @commands.command("reload_config")
     async def reload_channel_command(self, ctx: commands.Context):
@@ -80,6 +82,7 @@ class Utils(commands.Cog):
             data = toml.load(f)
         self.bot.config = data
         await ctx.send(f"Reloaded config.")
+        await self.bot.load_cache()
     
     @commands.is_owner()
     @commands.command("update_config")
@@ -101,6 +104,7 @@ class Utils(commands.Cog):
         with open('config.toml', 'w') as f:
             toml.dump(data, f)
         await ctx.send(f"Added `{phrase}` to the blacklist.")
+        await self.bot.load_cache()
 def setup(bot):
     bot.add_cog(Utils(bot))
 

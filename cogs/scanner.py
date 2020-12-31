@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import discord
 from discord.ext import commands
-
+from utils.checks import in_scan_channel
 
 class Rollback(Exception):
     pass
@@ -27,12 +27,7 @@ class Scanner(commands.Cog):
         if (message.author.id == self.bot.user.id): return
 
         # Ignore message not in scan channels
-        db_cog = self.bot.get_cog('DBChecks')
-        if db_cog is None:
-            self.bot.logger.info("The cog \"DBChecks\" is not loaded")
-            return
-        
-        if not await db_cog.in_scan_channel(message.channel.id): return
+        if not in_scan_channel(self, message.channel.id): return
         
         async with self.message_lock:
             # Add messages to processing queue
