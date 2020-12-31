@@ -21,6 +21,30 @@ class Utils(commands.Cog):
         self.message_lock = asyncio.Lock()
         self.compute_lock = asyncio.Lock()
             
+    @commands.is_owner()
+    @commands.check(check_granted_server)
+    @commands.command("import_channels")
+    async def import_channels_command(self, ctx: commands.Context):
+        for channel_id in self.bot.config['scan_channels']:
+            channel = self.bot.get_channel(channel_id)
+            if not channel:
+                await ctx.send("Channel not found!")
+                continue
+            async with self.bot.db.acquire() as conn:
+                async with conn.transaction():
+                    try:
+                        await conn.fetch(
+                            """
+                            INSERT INTO scan_channels (channel_id, server_id)
+                            VALUES ($1, $2)
+                            """,
+                            channel.id,
+                            channel.guild.id
+                        )
+                        await ctx.send(f"Channel `{channel.name}` from **{channel.guild.name}** added to scan list.")
+                    except UniqueViolationError:
+                        await ctx.send(f"{ctx.author.mention} Sorry, that channel already exists.")
+        await self.bot.load_cache()
 
     @commands.check(check_granted_server)
     @commands.command("add_channel")
@@ -65,7 +89,7 @@ class Utils(commands.Cog):
         await ctx.author.add_roles(ctx.guild.get_role(self.bot.config.get('review_role')))
 
         await ctx.send(f"{ctx.author.mention} You can start reviewing at {channel.mention}.")
-        
+
         await self.bot.load_cache()
 
         review_cog = self.bot.get_cog('ReviewQueue')
