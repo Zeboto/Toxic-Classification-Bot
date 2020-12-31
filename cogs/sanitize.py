@@ -68,15 +68,21 @@ class SanitizeQueue(commands.Cog):
             await sanitize['sanitize'].delete()
             if len(self.sanitize_queue) > 0:
                 await self.create_new_sanitize()
-                
+            
         # Delete sanitize message 
-        if in_sanitize_channel(self, message) and str(reaction) == emojis[-1]:
+        if str(reaction) == emojis[-1]:
             sanitize = self.sanitize_message
             async with self.sanitize_lock:
                 self.sanitize_message = None
             await sanitize['sanitize'].delete()
             if len(self.sanitize_queue) > 0:
                 await self.create_new_sanitize()
+        
+        review_cog = self.bot.get_cog('ReviewQueue')
+        if review_cog is None:
+            self.bot.logger.info("The cog \"ReviewQueue\" is not loaded")
+            return
+        await review_cog.fill_empty_queues()
     async def add_to_sanitize_queue(self, review_message):
         conn = self.bot.get_db()
         msgs_to_edit = await conn.set_sanitize(review_message['review_id'])
