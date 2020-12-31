@@ -16,6 +16,19 @@ class DBUtils(commands.Cog):
         super().__init__()
         self.bot = bot
             
+
+    # ===================== #
+    # ======= CACHE ======= #
+    # ===================== #
+    async def load_scan_channels(self):
+        async with self.bot.db.acquire() as conn:
+            record = await conn.fetch("SELECT channel_id FROM scan_channels WHERE active")
+            return [x['channel_id'] for x in record]
+
+    async def load_reviewer_channels(self):
+        async with self.bot.db.acquire() as conn:
+            record = await conn.fetch("SELECT user_id,channel_id FROM reviewers WHERE active")
+            return [dict(x) for x in record]
     async def add_reviewer(self, user_id: int, channel_id: int):
         async with self.bot.db.acquire() as conn:
             async with conn.transaction():

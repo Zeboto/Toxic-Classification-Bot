@@ -41,7 +41,7 @@ class FlagBot(commands.Bot):
         if not credentials:
             self.logger.critical("Cannot connect to db, no credentials!")
             await self.logout()
-
+        
         self.db = await asyncpg.create_pool(**credentials)
         self.db_available.set()
 
@@ -49,6 +49,20 @@ class FlagBot(commands.Bot):
         self.discover_exts('cogs')
         self.logger.info('Ready! Logged in as %s (%d)', self.user, self.user.id)
 
+        await self.load_cache()
+
+    async def load_cache(self):
+        conn = self.get_db()
+
+        self.config['reviewer_channels'] = await conn.load_reviewer_channels()
+        self.config['scan_channels'] = await conn.load_scan_channels()
+
+    def get_db(self):
+        conn = self.get_cog('DBUtils')
+        if conn is None:
+            self.bot.logger.info("The cog \"DBUtils\" is not loaded")
+            return
+        return conn
     async def on_command_error(self, ctx: commands.Context, exception):
         msg = ctx.message
         if isinstance(exception, (commands.CommandOnCooldown, commands.CommandNotFound,
