@@ -38,3 +38,14 @@ reaction_emojis = [
 ]
 
 blacklist = []
+
+[database]
+# The keyword arguments that get passed into database connectors.
+# If you're using the docker-compose, you do not need to change this.
+host = "db"
+port = 5432
+user = "postgres"
+password = "password"
+database = ""
+max_size = 20
+timeout = 60
