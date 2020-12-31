@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS scores (
 CREATE TABLE IF NOT EXISTS scan_channels (
     -- Discord channel ID
     channel_id BIGINT PRIMARY KEY,
-    UNIQUE(channel_id)
+    UNIQUE(channel_id),
     -- Discord server ID
     server_id BIGINT NOT NULL,
 
@@ -81,8 +81,8 @@ CREATE TABLE IF NOT EXISTS review_messages (
     -- If this content is still in queue
     active BOOLEAN DEFAULT true,
 
-    -- Number of votes collected
-    votes SMALLINT DEFAULT 0,
+    -- If in the sanitization queue
+    in_sanitize BOOLEAN DEFAULT false,
 
     -- Date created
     date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS review_log (
     
     -- User reviewed/reviewing
     user_id BIGINT NOT NULL REFERENCES reviewers ON DELETE CASCADE,
-
+    UNIQUE(review_id,user_id),
     -- Review Discord message ID
     message_id BIGINT,
 
