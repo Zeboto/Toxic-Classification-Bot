@@ -1,35 +1,27 @@
 import asyncio
 import logging
-import os
-import random
-import re
-from datetime import datetime, timedelta
 
-from typing import TYPE_CHECKING
+from datetime import datetime
+
+from utils.classes import Cog
+
 from utils.decorators import timing
 
-if TYPE_CHECKING:
-    from bot import FlagBot
-
-
 import discord
-import pandas as pd
-from discord.ext import commands
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
-
-log = logging.get_logger(__name__)
 
 
-class Stats(commands.Cog):
-    def __init__(self, bot):
-        super().__init__()
-        self.bot: "FlagBot" = bot
-        self.stat_message = None
-        self.completed = 0
-        self.remaining = 0
-        self.reviewer_stats = {}
-        self.last_stats = None
+log = logging.getLogger(__name__)
+
+
+class Stats(Cog):
+    stat_message: int = None
+    completed: int = 0
+    remaining: int = 0
+    reviewer_stats = {}
+    last_stats = None
+
+    def __init__(self, bot) -> None:
+        super().__init__(bot)
         asyncio.create_task(self.clean_channel())
         asyncio.create_task(self.create_stats())
 
@@ -60,7 +52,7 @@ class Stats(commands.Cog):
 
     async def update_stats(self, user_id):
         if self.last_stats and (datetime.now() - self.last_stats).total_seconds() < 3 * 60:
-            self.bot.logger.info("Skipping stats")
+            log.info("Skipping stats")
             return
 
         conn = self.bot.get_db()
