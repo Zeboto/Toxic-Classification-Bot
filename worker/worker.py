@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import asyncpg
 import asyncio
 import base64
 import json
@@ -7,12 +8,13 @@ import logging
 import os
 import signal
 import traceback
-
+from discord import Webhook, AsyncWebhookAdapter
 import aiohttp
 import aioredis
 import discord.http
 import toml
 
+from .db import get_stats,get_total_reviews
 log = logging.getLogger(__name__)
 
 
@@ -41,13 +43,25 @@ class Worker:
         self.session = None
 
         self.redis = None
-
+        self.db = None
+        self.db_available = asyncio.Event()
         self.token = None
         self.worker_id = None
 
         self._bot_user_id = int(base64.b64decode(self.config['token'].split('.', 1)[0]))
         
         self.loop = asyncio.get_event_loop()
+        self.loop.create_task(self.acquire_pool())
+        
+    async def acquire_pool(self):
+        credentials = self.config["database"]
+
+        if not credentials:
+            log.critical("Cannot connect to db, no credentials!")
+            await self.logout()
+        
+        self.db = await asyncpg.create_pool(**credentials)
+        self.db_available.set()
 
     @classmethod
     def with_config(cls):
@@ -132,16 +146,58 @@ class Worker:
     async def run_job(self, data):
         
         async def delete_reactions():
+            channel_id = data['channel'] 
+            message_id = data['message']
+            emoji = data['emoji']
             try:
-                users = await self.http.get_reaction_users(data['channel_id'], data['message_id'], data['emoji'], 10)
+                users = await self.http.get_reaction_users(channel_id, message_id, emoji, 10)
                 for u in users:
                     if u['id'] != str(self._bot_user_id):
-                        await self.http.remove_reaction(data['channel_id'], data['message_id'], data['emoji'], u['id'])
+                        await self.http.remove_reaction(channel_id, message_id, emoji, u['id'])
             except (Exception, *CONNECTION_ERRORS):  # Catch bare Exception to be safe
                 return
         
+        async def update_stats():
+            reviewers = data['reviewers']
+            log.critical(self.db)
+            completed = await get_total_reviews(self.db)
+            reviewer_stats = {}
+            stats = await get_stats(self.db, self.config['min_votes'])
+            for r in reviewers:
+                user = await self.http.get_user(r)
+                stat = [x for x in stats if r == x['user_id']][0]
+                reviewer_stats[str(r)] = {
+                    'name': user['username'],
+                    'completed': stat['completed'],
+                    'left': stat['remaining'],
+                    'total_score': stat['total']
+                }
+            remaining = max([x['left'] for x in reviewer_stats.values()])
+            await update_embed(completed, remaining, reviewer_stats)
+
+        async def update_embed(completed, remaining, reviewer_stats):
+            channel_id = data['channel'] 
+            message_id = data['message']
+            webhook_url = data['url']
+            
+            
+            content = f"Reviews Left: {remaining}\nReviews Completed: {completed}"
+
+            embed = discord.Embed(
+                title='Reviewer Stats',
+                description=content,
+                color=0xff0000
+            )
+            for uid,r in reviewer_stats.items():
+                embed.add_field(name=r['name'], value=f"Reviews Left: {r['left']}\nReviews Completed: {r['completed']}\nDeviance Score: {r['total_score']}")
+            
+            webhook = Webhook.from_url(webhook_url, adapter=AsyncWebhookAdapter(self.session))
+            await webhook.edit_message(message_id, embed=embed)
+
         if data['method'] == 'delete_reactions':
             await delete_reactions()
+        if data['method'] == 'update_stats':
+            await update_stats()
         
     async def _send_error(self, message, channel_id):
         try:
