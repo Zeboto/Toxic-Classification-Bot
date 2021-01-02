@@ -13,9 +13,9 @@ def timing(log=None):
         @wraps(function)
         def wrapper(*args, **kwargs):
             prt(f"starting {function.__name__}..")
-            ts = time.time()
+            ts = time()
             result = function(*args, **kwargs)
-            te = time.time()
+            te = time()
             prt(f"{function.__name__} completed, took {te - ts} seconds")
             return result
         return wrapper
