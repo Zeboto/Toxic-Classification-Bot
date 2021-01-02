@@ -110,15 +110,14 @@ class ReviewQueue(Cog):
             log.info("The cog \"Stats\" is not loaded")
             return
         start = datetime.now()
-        asyncio.create_task(stats_cog.update_stats(member.id))
-
+        asyncio.create_task(stats_cog.create_stats())
+    
     async def remove_reactions(self, message):
         for r in message.reactions:
-            data = {'method': 'delete_reactions', 'channel_id': message.channel.id,
-                    'message_id': message.id, 'emoji': str(r.emoji).strip('<>')}
-            await self.bot.redis.rpush('blurple:queue', json.dumps(data))
-
-    async def add_train_row(self, row: dict = {'message': str, 'score': dict}):
+            data = {'method': 'delete_reactions', 'channel': message.channel.id, 'message': message.id, 'emoji': str(r.emoji).strip('<>')}
+            await self.bot.redis.rpush('flagbot:queue', json.dumps(data))
+        
+    async def add_train_row(self, row: dict={'message': str, 'score': dict}):
         row = ([row['message']] + [x[1] for x in row['score'].items()])
         is_new_file = not os.path.exists("./input/new_train.csv")
 
