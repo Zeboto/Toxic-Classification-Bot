@@ -7,11 +7,14 @@ import logging
 import traceback
 from pathlib import Path
 
+from typing import TYPE_CHECKING, List
+if TYPE_CHECKING:
+    from cogs.db.utils import DBUtils
+
 import aiohttp
 
 import discord
 from discord.ext import commands
-
 
 
 class FlagBot(commands.Bot):
@@ -26,8 +29,8 @@ class FlagBot(commands.Bot):
         self.owner: discord.User = None
 
         #: List of extension names to load. We store this because `self.extensions` is volatile during reload.
-        self.to_load: typing.List[str] = None
-        
+        self.to_load: List[str] = None
+
         self.logger = logging.getLogger('flagbot')
 
         self.remove_command('help')
@@ -41,7 +44,7 @@ class FlagBot(commands.Bot):
         if not credentials:
             self.logger.critical("Cannot connect to db, no credentials!")
             await self.logout()
-        
+
         self.db = await asyncpg.create_pool(**credentials)
         self.db_available.set()
 
@@ -59,7 +62,7 @@ class FlagBot(commands.Bot):
             channel = self.get_channel(c['channel_id']) or await self.fetch_channel(c['channel_id'])
             if len(await channel.webhooks()) == 0:
                 await channel.create_webhook(name='FlagBot')
-            
+
         channel = self.get_channel(self.config['stats_channel']) or await self.fetch_channel(self.config['stats_channel'])
         if len(await channel.webhooks()) == 0:
             await channel.create_webhook(name='FlagBot')
@@ -68,12 +71,13 @@ class FlagBot(commands.Bot):
         if len(await channel.webhooks()) == 0:
             await channel.create_webhook(name='FlagBot')
 
-    def get_db(self):
+    def get_db(self) -> "DBUtils":
         conn = self.get_cog('DBUtils')
         if conn is None:
             self.bot.logger.info("The cog \"DBUtils\" is not loaded")
             return
         return conn
+
     async def on_command_error(self, ctx: commands.Context, exception):
         msg = ctx.message
         if isinstance(exception, (commands.CommandOnCooldown, commands.CommandNotFound,
@@ -97,14 +101,13 @@ class FlagBot(commands.Bot):
         if user.id in self.config.get("admin_users", []):
             return True
         return await super().is_owner(user)
-    
-    
+
     def discover_exts(self, directory: str):
         """Loads all extensions from a directory."""
         ignore = {'__pycache__', '__init__'}
-        
+
         exts = [
-            '.'.join(list(p.parts)).replace('.py','') for p in list(Path(directory).glob('**/*.py'))
+            '.'.join(list(p.parts)).replace('.py', '') for p in list(Path(directory).glob('**/*.py'))
             if p.stem not in ignore
         ]
 

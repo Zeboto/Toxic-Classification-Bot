@@ -16,7 +16,6 @@ class DBUtils(commands.Cog):
         super().__init__()
         self.bot = bot
 
-
     # ===================== #
     # ======= CACHE ======= #
     # ===================== #
@@ -30,11 +29,10 @@ class DBUtils(commands.Cog):
             record = await conn.fetch("SELECT user_id,channel_id FROM reviewers WHERE active")
             return [dict(x) for x in record]
 
-
-
     # ====================== #
     # ======= CHECKS ======= #
     # ====================== #
+
     async def has_empty_queue(self, user_id: int):
         async with self.bot.db.acquire() as conn:
             record = await conn.fetchrow(
@@ -45,11 +43,10 @@ class DBUtils(commands.Cog):
             )
             return record['count'] != 0
 
-
-
     # ======================== #
     # ======= REVIEWER ======= #
     # ======================== #
+
     async def add_reviewer(self, user_id: int, channel_id: int):
         async with self.bot.db.acquire() as conn:
             async with conn.transaction():
@@ -61,6 +58,7 @@ class DBUtils(commands.Cog):
                     user_id,
                     channel_id
                 )
+
     async def remove_reviewer(self, user_id: int):
         async with self.bot.db.acquire() as conn:
             async with conn.transaction():
@@ -79,14 +77,15 @@ class DBUtils(commands.Cog):
     async def get_score(self, score_id: int):
         async with self.bot.db.acquire() as conn:
             record = await conn.fetchrow(
-                    """
+                """
                     SELECT insult, severe_toxic, identity_hate, threat, nsfw
                     FROM scores
                     WHERE id = $1
                     """,
-                    score_id
+                score_id
             )
             return record
+
     async def add_score(self, scanned_content: str, scores: dict):
         async with self.bot.db.acquire() as conn:
             async with conn.transaction():
@@ -104,14 +103,13 @@ class DBUtils(commands.Cog):
                     scores['nsfw']
                 )
                 return record['id']
-    
-
 
     # ====================== #
     # === REVIEW MESSAGE === #
     # ====================== #
+
     async def add_review_message(self, scanned_content: str, scores: dict):
-        score_id = await self.add_score(scanned_content,scores)
+        score_id = await self.add_score(scanned_content, scores)
         async with self.bot.db.acquire() as conn:
             async with conn.transaction():
                 record = await conn.fetchrow(
@@ -124,17 +122,19 @@ class DBUtils(commands.Cog):
                     scanned_content
                 )
                 return record['id']
+
     async def get_review_message(self, message_id, user_id):
         async with self.bot.db.acquire() as conn:
             record = await conn.fetchrow(
-                    """
+                """
                     SELECT review_id, clean_content
                     FROM review_log INNER JOIN review_messages ON id = review_id
                     WHERE message_id = $1 AND user_id = $2 AND review_log.active
                     """,
-                    message_id, user_id
+                message_id, user_id
             )
             return record
+
     async def edit_review_message(self, review_id, clean_content: str):
         async with self.bot.db.acquire() as conn:
             async with conn.transaction():
@@ -155,13 +155,12 @@ class DBUtils(commands.Cog):
                     review_id
                 )
 
-
-    
-    # ====================== # 
+    # ====================== #
     # ==== REVIEW QUEUE ==== #
     # ====================== #
+
     async def find_empty_queues(self):
-       async with self.bot.db.acquire() as conn:
+        async with self.bot.db.acquire() as conn:
             record = await conn.fetch(
                 """
                 SELECT user_id, channel_id
@@ -201,7 +200,7 @@ class DBUtils(commands.Cog):
             return record
 
     async def get_active_queue_messages(self, review_id: int):
-        async with self.bot.db.acquire() as conn:                
+        async with self.bot.db.acquire() as conn:
             record = await conn.fetch(
                 """
                 SELECT message_id,review_log.user_id,channel_id
@@ -212,10 +211,10 @@ class DBUtils(commands.Cog):
             )
             return record
 
-
-    # ====================== # 
+    # ====================== #
     # ===== REVIEW LOG ===== #
     # ====================== #
+
     async def add_review_log(self, review_id: int, user_id: int, message_id: int):
         async with self.bot.db.acquire() as conn:
             async with conn.transaction():
@@ -239,11 +238,11 @@ class DBUtils(commands.Cog):
                     """,
                     review_id
                 )
-    
 
-    # ============================= # 
+    # ============================= #
     # ===== REVIEW SUBMISSION ===== #
     # ============================= #
+
     async def submit_review(self, review_id: int, user_id: int, scores: dict):
         async with self.bot.db.acquire() as conn:
             async with conn.transaction():
@@ -264,14 +263,14 @@ class DBUtils(commands.Cog):
                 )
 
     async def check_complete_review(self, review_id: int):
-        async with self.bot.db.acquire() as conn:                
+        async with self.bot.db.acquire() as conn:
             record = await conn.fetchval(
-                    """
+                """
                     SELECT COUNT(*)
                     FROM review_log
                     WHERE review_id = $1 AND active = FALSE
                     """,
-                    review_id
+                review_id
             )
             if record >= self.bot.config.get('min_votes'):
                 record = await conn.fetch(
@@ -286,21 +285,21 @@ class DBUtils(commands.Cog):
                 new_scores = {
                     'insult': 0,
                     'severe_toxic': 0,
-                    'identity_hate': 0, 
+                    'identity_hate': 0,
                     'threat': 0,
                     'nsfw': 0
                 }
                 for r in record:
                     for k, v in new_scores.items():
-                        new_scores[k] += r[k]    
+                        new_scores[k] += r[k]
                 for k, v in new_scores.items():
-                    new_scores[k] = 1 if new_scores[k] / len(record) >= 2/3 else 0
+                    new_scores[k] = 1 if new_scores[k] / len(record) >= 2 / 3 else 0
                 await self.complete_review(review_id)
                 return {'message': record[0]['clean_content'], 'score': new_scores}
             return None
-    
+
     async def complete_review(self, review_id: int):
-        async with self.bot.db.acquire() as conn:                
+        async with self.bot.db.acquire() as conn:
             async with conn.transaction():
                 await conn.fetchval(
                     """
@@ -318,14 +317,13 @@ class DBUtils(commands.Cog):
                     """,
                     review_id
                 )
-    
 
-    
-    # ====================== # 
+    # ====================== #
     # ====== SANITIZE ====== #
     # ====================== #
+
     async def set_sanitize(self, review_id: int):
-        async with self.bot.db.acquire() as conn:                
+        async with self.bot.db.acquire() as conn:
             async with conn.transaction():
                 await conn.fetch(
                     """
@@ -338,11 +336,11 @@ class DBUtils(commands.Cog):
         record = await self.get_active_queue_messages(review_id)
         await self.remove_review_log(review_id)
         return record
-                    
 
-    # ===================== # 
+    # ===================== #
     # ======= STATS ======= #
     # ===================== #
+
     async def get_total_reviews(self):
         async with self.bot.db.acquire() as conn:
             record = await conn.fetchval("SELECT COUNT(*) FROM review_messages WHERE active = FALSE AND in_sanitize = FALSE")
@@ -392,10 +390,10 @@ class DBUtils(commands.Cog):
                     ROUND(AVG(CASE WHEN result_table.threat = user_table.threat THEN 0 ELSE 1 END), 3) AS threat,
                     ROUND(AVG(CASE WHEN result_table.nsfw = user_table.nsfw THEN 0 ELSE 1 END), 3) AS nsfw
                 FROM result_table INNER JOIN user_table USING(review_id)
-                """, 
+                """,
                 user_id)
-            return int(sum(record.values())*1000), dict(record)
-            
+            return int(sum(record.values()) * 1000), dict(record)
+
     async def get_remaining_reviews(self, user_id: int):
         async with self.bot.db.acquire() as conn:
             record = await conn.fetchval(
@@ -419,6 +417,7 @@ class DBUtils(commands.Cog):
                 self.bot.config.get('min_votes')
             )
             return record
+
+
 def setup(bot):
     bot.add_cog(DBUtils(bot))
-
