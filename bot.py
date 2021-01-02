@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+import aioredis
 import asyncio
 import asyncpg
 import hashlib
@@ -17,7 +17,7 @@ from discord.ext import commands
 class FlagBot(commands.Bot):
     def __init__(self, *args, config=None, **kwargs):
         super().__init__(*args, **kwargs)
-        
+        self.redis = None
         self.config = config or {}
         self.db = None
         self.db_available = asyncio.Event()
@@ -46,16 +46,27 @@ class FlagBot(commands.Bot):
         self.db_available.set()
 
     async def on_ready(self):
+        self.redis = await aioredis.create_redis_pool(**self.config['redis'])
         self.discover_exts('cogs')
         self.logger.info('Ready! Logged in as %s (%d)', self.user, self.user.id)
-
-        await self.load_cache()
 
     async def load_cache(self):
         conn = self.get_db()
 
         self.config['reviewer_channels'] = await conn.load_reviewer_channels()
         self.config['scan_channels'] = await conn.load_scan_channels()
+        for c in self.config['reviewer_channels']:
+            channel = self.get_channel(c['channel_id']) or await self.fetch_channel(c['channel_id'])
+            if len(await channel.webhooks()) == 0:
+                await channel.create_webhook(name='FlagBot')
+            
+        channel = self.get_channel(self.config['stats_channel']) or await self.fetch_channel(self.config['stats_channel'])
+        if len(await channel.webhooks()) == 0:
+            await channel.create_webhook(name='FlagBot')
+
+        channel = self.get_channel(self.config['sanitize_channel']) or await self.fetch_channel(self.config['sanitize_channel'])
+        if len(await channel.webhooks()) == 0:
+            await channel.create_webhook(name='FlagBot')
 
     def get_db(self):
         conn = self.get_cog('DBUtils')

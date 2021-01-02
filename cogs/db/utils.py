@@ -126,7 +126,6 @@ class DBUtils(commands.Cog):
                 return record['id']
     async def get_review_message(self, message_id, user_id):
         async with self.bot.db.acquire() as conn:
-            self.bot.logger.info(message_id)
             record = await conn.fetchrow(
                     """
                     SELECT review_id, clean_content
@@ -135,7 +134,6 @@ class DBUtils(commands.Cog):
                     """,
                     message_id, user_id
             )
-            self.bot.logger.info(record)
             return record
     async def edit_review_message(self, review_id, clean_content: str):
         async with self.bot.db.acquire() as conn:
@@ -183,15 +181,23 @@ class DBUtils(commands.Cog):
                 """
                 SELECT *
                 FROM review_messages r
-                WHERE in_sanitize = FALSE AND active AND NOT EXISTS(
+                WHERE in_sanitize = FALSE 
+                AND active 
+                AND NOT EXISTS(
                     SELECT *
                     FROM review_log
                     WHERE user_id = $1 AND review_id = r.id AND active = FALSE
-                );
+                )
+                AND NOT r.id IN (
+                    SELECT review_id
+                    FROM review_log
+                    GROUP BY review_id HAVING COUNT(*) >= $2
+                )
+                ORDER BY r.id ASC 
                 """,
-                user_id
+                user_id,
+                self.bot.config.get('min_votes')
             )
-            self.bot.logger.info(record)
             return record
 
     async def get_active_queue_messages(self, review_id: int):
@@ -239,7 +245,6 @@ class DBUtils(commands.Cog):
     # ===== REVIEW SUBMISSION ===== #
     # ============================= #
     async def submit_review(self, review_id: int, user_id: int, scores: dict):
-        self.bot.logger.info("Submitting review")
         async with self.bot.db.acquire() as conn:
             async with conn.transaction():
                 record = await conn.fetch(
@@ -257,7 +262,7 @@ class DBUtils(commands.Cog):
                     scores['threat'],
                     scores['nsfw'],
                 )
-                self.bot.logger.info(record)
+
     async def check_complete_review(self, review_id: int):
         async with self.bot.db.acquire() as conn:                
             record = await conn.fetchval(
@@ -335,8 +340,85 @@ class DBUtils(commands.Cog):
         return record
                     
 
+    # ===================== # 
+    # ======= STATS ======= #
+    # ===================== #
+    async def get_total_reviews(self):
+        async with self.bot.db.acquire() as conn:
+            record = await conn.fetchval("SELECT COUNT(*) FROM review_messages WHERE active = FALSE AND in_sanitize = FALSE")
+            return record
 
+    async def get_reviews_count(self, user_id):
+        async with self.bot.db.acquire() as conn:
+            record = await conn.fetchval("SELECT COUNT(*) FROM review_log WHERE active = FALSE AND user_id = $1", user_id)
+            return record
 
+    async def get_deviance(self, user_id):
+        async with self.bot.db.acquire() as conn:
+            record = await conn.fetchrow(
+                """
+                WITH reviews_table AS (
+                    SELECT * 
+                    FROM review_log INNER JOIN review_messages ON id = review_id 
+                    WHERE review_log.active = FALSE 
+                    AND review_messages.active = FALSE 
+                    AND in_sanitize = FALSE 
+                    AND EXISTS (
+                        SELECT 1
+                        FROM review_log
+                        WHERE review_messages.id = review_id 
+                        AND user_id = $1
+                        AND active = FALSE
+                    )
+                ), result_table AS (
+                    SELECT 
+                        review_id,
+                        CASE WHEN AVG(insult) > 2/3 THEN 1 ELSE 0 END insult,
+                        CASE WHEN AVG(severe_toxic) > 2/3 THEN 1 ELSE 0 END severe_toxic,
+                        CASE WHEN AVG(identity_hate) > 2/3 THEN 1 ELSE 0 END identity_hate,
+                        CASE WHEN AVG(threat) > 2/3 THEN 1 ELSE 0 END threat,
+                        CASE WHEN AVG(nsfw) > 2/3 THEN 1 ELSE 0 END nsfw
+                    FROM reviews_table
+                    GROUP BY review_id
+                ), user_table AS (
+                    SELECT *
+                    FROM reviews_table
+                    WHERE user_id = $1
+                )
+                SELECT
+                    ROUND(AVG(CASE WHEN result_table.insult = user_table.insult THEN 0 ELSE 1 END), 3) AS insult,
+                    ROUND(AVG(CASE WHEN result_table.severe_toxic = user_table.severe_toxic THEN 0 ELSE 1 END), 3) AS severe_toxic,
+                    ROUND(AVG(CASE WHEN result_table.identity_hate = user_table.identity_hate THEN 0 ELSE 1 END), 3) AS identity_hate,
+                    ROUND(AVG(CASE WHEN result_table.threat = user_table.threat THEN 0 ELSE 1 END), 3) AS threat,
+                    ROUND(AVG(CASE WHEN result_table.nsfw = user_table.nsfw THEN 0 ELSE 1 END), 3) AS nsfw
+                FROM result_table INNER JOIN user_table USING(review_id)
+                """, 
+                user_id)
+            return int(sum(record.values())*1000), dict(record)
+            
+    async def get_remaining_reviews(self, user_id: int):
+        async with self.bot.db.acquire() as conn:
+            record = await conn.fetchval(
+                """
+                SELECT COUNT(*)
+                FROM review_messages r
+                WHERE in_sanitize = FALSE 
+                AND active 
+                AND NOT EXISTS(
+                    SELECT *
+                    FROM review_log
+                    WHERE user_id = $1 AND review_id = r.id AND active = FALSE
+                )
+                AND NOT r.id IN (
+                    SELECT review_id
+                    FROM review_log
+                    GROUP BY review_id HAVING COUNT(*) >= $2
+                )
+                """,
+                user_id,
+                self.bot.config.get('min_votes')
+            )
+            return record
 def setup(bot):
     bot.add_cog(DBUtils(bot))
 

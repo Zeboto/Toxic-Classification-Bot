@@ -1,7 +1,7 @@
+aioredis
 asyncpg>=0.18.2
 discord.py>=1.0.0
 jishaku>=1.16.0
-Pillow>=5.4.1
 toml>=0.10.0
 uvloop>=0.12.0; sys_platform != "win32" and implementation_name == "cpython"
 numpy

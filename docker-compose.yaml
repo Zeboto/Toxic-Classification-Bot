@@ -3,6 +3,7 @@ volumes:
   flagbot-postgresql:
     external: false
   pgadmin:
+  redis:
 
 services:
 
@@ -10,6 +11,7 @@ services:
     build: .
     depends_on:
       - db
+      - redis
     volumes:
       - ./:/app
     networks:
@@ -42,6 +44,27 @@ services:
       - postgres
     logging:
       driver: none
+
+  worker:
+    build: .
+    command: python -m worker
+    restart: unless-stopped
+    depends_on:
+      - redis
+    volumes:
+      - ./:/app
+    networks:
+      - postgres
+    environment:
+      - WORKER_COUNT=${WORKER_COUNT:-3}
+
+  redis:
+    image: redis:5-alpine
+    command: redis-server --appendonly yes
+    networks:
+      - postgres
+    volumes:
+      - redis:/data
 
 networks:
   postgres:

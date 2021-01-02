@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 import csv
 import math
+import json
 import os
 import asyncio
 from datetime import datetime, timedelta
 
 import discord
+import discord.http
+import aiohttp
 from discord.ext import commands
 from utils.checks import in_reviewer_channel
 
@@ -18,24 +21,14 @@ class ReviewQueue(commands.Cog):
     def __init__(self, bot):
         super().__init__()
         self.bot = bot
-        
         self.review_queue = []
         self.in_review = []
         self.review_lock = asyncio.Lock()
         self.messages = []
         self.cols_target = ['insult','severe_toxic','identity_hate','threat','nsfw']
-        asyncio.create_task(self.clean_channel())
-
-    
-    async def clean_channel(self):
-        await self.bot.wait_until_ready()
-        # Clear review queue
-        channel = self.bot.get_channel(self.bot.config.get('review_channel'))
-        await channel.purge(limit=100)
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent ):
-        
         # Ignore reactions from the bot
         if (payload.user_id == self.bot.user.id): return
 
@@ -43,10 +36,9 @@ class ReviewQueue(commands.Cog):
         if not in_reviewer_channel(self, {'user_id': payload.user_id, 'channel_id': payload.channel_id}): return
         
         self.bot.logger.info("Logged reaction")
-
+        
         channel = self.bot.get_channel(payload.channel_id)
         message = await channel.fetch_message(payload.message_id)
-        
         reaction = [r for r in message.reactions if str(r.emoji) == str(payload.emoji)][0]
         member = self.bot.get_user(payload.user_id) or await self.bot.fetch_user(payload.user_id)
 
@@ -55,13 +47,11 @@ class ReviewQueue(commands.Cog):
         # Ignore feature scoring options
         if str(reaction) not in emojis[-4:]: return    
         
-        
-        
         # Complete review when votes reached
         if str(reaction) == emojis[-4]:
             self.bot.logger.info("Sending review.")
+            conn = self.bot.get_db()
             async with self.review_lock:
-                conn = self.bot.get_db()
                 review = await conn.get_review_message(message.id, member.id)
                 if review is None: return
                 reactions = message.reactions
@@ -70,46 +60,59 @@ class ReviewQueue(commands.Cog):
                     if str(r) in emojis[:-4]:
                         i = emojis.index(str(r)) 
                         scores[self.cols_target[i]] = r.count-1
+                asyncio.create_task(self.remove_reactions(message))
                 await conn.submit_review(review['review_id'], member.id, scores)
+                await self.change_message(message, member)
                 complete_review = await conn.check_complete_review(review['review_id'])
                 if complete_review:
-                    self.add_train_row(complete_review)
-                
-                await self.change_message(message, member)
-        
+                    asyncio.create_task(self.add_train_row(complete_review))
+            
+
         # Send to santization queue
         elif str(reaction) == emojis[-3]:
             self.bot.logger.info("Sending to santization queue")
+            
             async with self.review_lock:
                 conn = self.bot.get_db()
-                review = await conn.get_review_message(message.id,member.id)    
+                review = await conn.get_review_message(message.id,member.id) 
+                asyncio.create_task(self.remove_reactions(message))   
                 if review is None: return
+                msgs_to_edit = await conn.set_sanitize(review['review_id'])
+                for m in msgs_to_edit:
+                    msg = await self.bot.get_channel(m['channel_id']).fetch_message(m['message_id'])
+                    member = self.bot.get_user(m['user_id']) or await self.bot.fetch_user(m['user_id'])
+                    await self.change_message(msg,member)
+                
                 sanitize_cog = self.bot.get_cog('SanitizeQueue')
                 if sanitize_cog is None:
                     self.bot.logger.info("The cog \"SanitizeQueue\" is not loaded")
                     return
-                await sanitize_cog.add_to_sanitize_queue(review)
-            
-                
+                asyncio.create_task(sanitize_cog.add_to_sanitize_queue(review, msgs_to_edit))
+                        
     async def change_message(self, message, member):
         conn = self.bot.get_db()
+        webhook = (await message.channel.webhooks())[0]
         review_message = await conn.pop_review_queue(member.id)
+        if not review_message:
+            await webhook.delete_message(message.id)
+        scores = await conn.get_score(review_message['score_id'])
+        embed = self.create_review_embed(review_message['clean_content'], scores)
+        await conn.add_review_log(review_message['id'], member.id, message.id)
+        await webhook.edit_message(message.id, embed=embed)
         
-        if review_message:
-            scores = await conn.get_score(review_message['score_id'])
-            embed = self.create_review_embed(review_message['clean_content'], scores)
-            await message.edit(embed=embed)
-            
-            await conn.add_review_log(review_message['id'], member.id, message.id)
-            
-            for r in message.reactions:
-                users = await r.users().flatten()
-                for u in users:
-                    if u.id != self.bot.user.id:
-                        await message.remove_reaction(r.emoji, u)
-        else:
-            await message.delete()
-    def add_train_row(self, row: dict={'message': str, 'score': dict}):
+        stats_cog = self.bot.get_cog('Stats')
+        if stats_cog is None:
+            self.bot.logger.info("The cog \"Stats\" is not loaded")
+            return
+        start = datetime.now()
+        asyncio.create_task(stats_cog.update_stats(member.id))
+    
+    async def remove_reactions(self, message):
+        for r in message.reactions:
+            data = {'method': 'delete_reactions', 'channel_id': message.channel.id, 'message_id': message.id, 'emoji': str(r.emoji).strip('<>')}
+            await self.bot.redis.rpush('blurple:queue', json.dumps(data))
+        
+    async def add_train_row(self, row: dict={'message': str, 'score': dict}):
         row = ([row['message']] + [x[1] for x in row['score'].items()])
         is_new_file = not os.path.exists("./input/new_train.csv")
             
@@ -132,31 +135,30 @@ class ReviewQueue(commands.Cog):
 
     async def fill_empty_queues(self):
         conn = self.bot.get_db()
-        
-        reviewers = await conn.find_empty_queues()
+        async with self.review_lock:
+            reviewers = await conn.find_empty_queues()
 
         if len(reviewers) == 0:
             return
 
         for reviewer in reviewers:
-            review_message = await conn.pop_review_queue(reviewer['user_id'])
-            if not review_message: continue
-            channel = self.bot.get_channel(reviewer['channel_id'])
-            scores = await conn.get_score(review_message['score_id'])
-            
-            embed = self.create_review_embed(review_message['clean_content'], scores)
-            
-            sent_message = await channel.send(embed=embed)
+            async with self.review_lock:
+                review_message = await conn.pop_review_queue(reviewer['user_id'])
+                if not review_message: continue
+                channel = self.bot.get_channel(reviewer['channel_id']) or await self.bot.fetch_channel(reviewer['channel_id'])
+                webhook = (await channel.webhooks())[0]
 
-            await conn.add_review_log(review_message['id'], reviewer['user_id'], sent_message.id)
+                scores = await conn.get_score(review_message['score_id'])
+            
+                embed = self.create_review_embed(review_message['clean_content'], scores)
+            
+                sent_message = await channel.fetch_message((await webhook.send(embed=embed, avatar_url=self.bot.user.avatar_url, wait=True)).id)
+                
+                await conn.add_review_log(review_message['id'], reviewer['user_id'], sent_message.id)
 
             for emoji in self.bot.config.get('reaction_emojis')[:-2]:
                 await sent_message.add_reaction(emoji)
-            
-
         
-
-
     def create_review_embed(self, content: str, scores: dict):
         score_values = []
 

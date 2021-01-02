@@ -84,7 +84,7 @@ class Utils(commands.Cog):
         
         channel = await category.create_text_channel(ctx.author.display_name.lower())
         
-        await db_utils.add_reviewer(ctx.author.id, channel.id)
+        await conn.add_reviewer(ctx.author.id, channel.id)
 
         await ctx.author.add_roles(ctx.guild.get_role(self.bot.config.get('review_role')))
 

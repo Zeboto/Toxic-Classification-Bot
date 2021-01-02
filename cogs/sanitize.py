@@ -30,7 +30,7 @@ class SanitizeQueue(commands.Cog):
         # Ignore prefix
         if message.content.startswith("f."): return
         
-        if (message.author.id == self.bot.user.id): return
+        if (message.author.id == self.bot.user.id) or message.webhook_id: return
 
         if in_sanitize_channel(self, message):
             await message.delete(delay=1.0)
@@ -46,13 +46,9 @@ class SanitizeQueue(commands.Cog):
         if not in_sanitize_channel(self, payload.channel_id): return
         
         self.bot.logger.info("Logged reaction")
-        self.bot.logger.info(payload)
         channel = self.bot.get_channel(payload.channel_id)
-        self.bot.logger.info(channel)
         message = await channel.fetch_message(payload.message_id)
-        self.bot.logger.info(message)
         reaction = [r for r in message.reactions if str(r.emoji) == str(payload.emoji)]
-        self.bot.logger.info(reaction)
         reaction = reaction[0]
 
         emojis = self.bot.config.get('reaction_emojis')
@@ -62,10 +58,12 @@ class SanitizeQueue(commands.Cog):
             sanitize = self.sanitize_message
             async with self.sanitize_lock:
                 self.sanitize_message = None
-            sanitize['clean_content'] = sanitize['sanitize'].embeds[0].description
+            
+            sanitize['clean_content'] = message.embeds[0].description
             conn = self.bot.get_db()
             await conn.edit_review_message(sanitize['review_id'], sanitize['clean_content'])
-            await sanitize['sanitize'].delete()
+            webhook = (await channel.webhooks())[0]
+            await webhook.delete_message(message.id)
             if len(self.sanitize_queue) > 0:
                 await self.create_new_sanitize()
             
@@ -74,7 +72,8 @@ class SanitizeQueue(commands.Cog):
             sanitize = self.sanitize_message
             async with self.sanitize_lock:
                 self.sanitize_message = None
-            await sanitize['sanitize'].delete()
+            webhook = (await channel.webhooks())[0]
+            await webhook.delete_message(message.id)
             if len(self.sanitize_queue) > 0:
                 await self.create_new_sanitize()
         
@@ -83,26 +82,17 @@ class SanitizeQueue(commands.Cog):
             self.bot.logger.info("The cog \"ReviewQueue\" is not loaded")
             return
         await review_cog.fill_empty_queues()
-    async def add_to_sanitize_queue(self, review_message):
-        conn = self.bot.get_db()
-        msgs_to_edit = await conn.set_sanitize(review_message['review_id'])
+    async def add_to_sanitize_queue(self, review_message, msgs_to_edit):
         review_cog = self.bot.get_cog('ReviewQueue')
         if review_cog is None:
             self.bot.logger.info("The cog \"ReviewQueue\" is not loaded")
             return
-        for m in msgs_to_edit:
-            self.bot.logger.info(m)
-            msg = await self.bot.get_channel(m['channel_id']).fetch_message(m['message_id'])
-            member = self.bot.get_user(m['user_id']) or await self.bot.fetch_user(m['user_id'])
-            await review_cog.change_message(msg,member)
         
-        
-        await review_cog.fill_empty_queues()
 
         async with self.sanitize_lock:
             self.sanitize_queue.insert(0, dict(review_message))
         if self.sanitize_message is None:
-                await self.create_new_sanitize()
+            await self.create_new_sanitize()
     async def create_new_sanitize(self):
         async with self.sanitize_lock:
             self.bot.logger.info("Creating new sanitize")
@@ -115,11 +105,13 @@ class SanitizeQueue(commands.Cog):
                 color=0xffa500 
             )
             embed.set_footer(text='Type the word or phrase you wish to replace.')
-            sanitize_message = await self.bot.get_channel(self.bot.config.get('sanitize_channel')).send(embed=embed)
+            channel = self.bot.get_channel(self.bot.config.get('sanitize_channel'))
+            webhook = (await channel.webhooks())[0]
+            sanitize_message = await channel.fetch_message((await webhook.send(embed=embed, avatar_url=self.bot.user.avatar_url, wait=True)).id)
             for emoji in self.bot.config.get('reaction_emojis')[-2:]:
                 await sanitize_message.add_reaction(emoji)
             
-            sanitize['sanitize'] = sanitize_message
+            sanitize['sanitize'] = sanitize_message.id
             sanitize['mode'] = 'search'
             self.sanitize_message = sanitize
 
@@ -134,17 +126,22 @@ class SanitizeQueue(commands.Cog):
                     color=0xffa500
                 )
                 embed.set_footer(text='Type the word or phrase you wish to replace.')
-                await self.sanitize_message['sanitize'].edit(embed=embed)
+                channel = self.bot.get_channel(self.bot.config.get('sanitize_channel'))
+                webhook = (await channel.webhooks())[0]
+                await webhook.edit_message(self.sanitize_message['sanitize'],embed=embed)
             elif content == 'rewrite':
                 self.sanitize_message['mode'] = "rewrite"
-                old_embed = self.sanitize_message['sanitize'].embeds[0]
+                channel = self.bot.get_channel(self.bot.config.get('sanitize_channel'))
+                old_embed = (await channel.fetch_message(self.sanitize_message['sanitize'])).embeds[0]
                 embed = discord.Embed(
                     title='Rewriting',
                     description=old_embed.description,
                     color=0x9932cc
                 )
                 embed.set_footer(text='Type the new message.')
-                await self.sanitize_message['sanitize'].edit(embed=embed)
+                
+                webhook = (await channel.webhooks())[0]
+                await webhook.edit_message(self.sanitize_message['sanitize'],embed=embed)
             elif self.sanitize_message['mode'] == 'rewrite':
                 embed = discord.Embed(
                     title='Sanitize message',
@@ -153,25 +150,33 @@ class SanitizeQueue(commands.Cog):
                 )
                 embed.set_footer(text='Type the word or phrase you wish to replace.')
                 self.sanitize_message['mode'] = "search"
-                await self.sanitize_message['sanitize'].edit(embed=embed)
+                channel = self.bot.get_channel(self.bot.config.get('sanitize_channel'))
+                webhook = (await channel.webhooks())[0]
+                await webhook.edit_message(self.sanitize_message['sanitize'],embed=embed)
             elif content in self.sanitize_message['clean_content'] and self.sanitize_message['mode'] == 'search':            
-                old_embed = self.sanitize_message['sanitize'].embeds[0]              
+                channel = self.bot.get_channel(self.bot.config.get('sanitize_channel'))
+                old_embed = (await channel.fetch_message(self.sanitize_message['sanitize'])).embeds[0]              
                 embed = discord.Embed(
                     title='Sanitize message',
                     description=old_embed.description.replace(content, "__name__"),
                     color=0xffa500
                 )
                 embed.set_footer(text='Type the new word you want to replace it with.')
-                await self.sanitize_message['sanitize'].edit(embed=embed)
+                channel = self.bot.get_channel(self.bot.config.get('sanitize_channel'))
+                webhook = (await channel.webhooks())[0]
+                await webhook.edit_message(self.sanitize_message['sanitize'],embed=embed)
             elif content not in self.sanitize_message['clean_content'] and self.sanitize_message['mode'] == 'search':
-                old_embed = self.sanitize_message['sanitize'].embeds[0]
+                channel = self.bot.get_channel(self.bot.config.get('sanitize_channel'))
+                old_embed = (await channel.fetch_message(self.sanitize_message['sanitize'])).embeds[0]
                 embed = discord.Embed(
                     title='Not Found! Try again.',
                     description=old_embed.description,
                     color=0xff0000
                 )
                 embed.set_footer(text='Type the word or phrase you wish to replace.')
-                await self.sanitize_message['sanitize'].edit(embed=embed)
+                channel = self.bot.get_channel(self.bot.config.get('sanitize_channel'))
+                webhook = (await channel.webhooks())[0]
+                await webhook.edit_message(self.sanitize_message['sanitize'],embed=embed)
             
 def setup(bot):
     bot.add_cog(SanitizeQueue(bot))

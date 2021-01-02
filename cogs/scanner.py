@@ -32,7 +32,8 @@ class Scanner(commands.Cog):
         async with self.message_lock:
             # Add messages to processing queue
             self.messages += [message]
-            self.bot.logger.info(f"Added message {len(self.messages)}/{self.bot.config.get('min_scanned')}")
+            if len(self.messages) % 100 == 0 or len(self.messages) == 1:
+                self.bot.logger.info(f"Added message {len(self.messages)}/{self.bot.config.get('min_scanned')}")
                 
         await self.process_messages()
 
