@@ -1,5 +1,9 @@
 token = "token"
-
+workers = [
+  "token1",
+  "token2",
+  "token3"
+  ]
 max_reviews_size = 25
 min_scanned = 500
 min_votes = 3
@@ -10,12 +14,14 @@ bot_server = 784984468251082752
 scan_channels = [
   289482554250100736
 ]
-flag_channel = 784984545131888711
-review_channel = 785310590498504754
-sanitize_channel = 785310898805407755
 
 reviewer_category = 793586695282884609
 review_role = 786276045355221055
+
+flag_channel = 784984545131888711
+stats_channel = 785310590498504754
+sanitize_channel = 785310898805407755
+
 
 admin_users = [
   248245568004947969,
@@ -49,3 +55,6 @@ password = "password"
 database = ""
 max_size = 20
 timeout = 60
+
+[redis]
+address = [ 'redis', '6379'] 
