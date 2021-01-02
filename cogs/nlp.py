@@ -98,7 +98,7 @@ class NLP(commands.Cog):
 
             for i, (k, v) in enumerate(scores.items()):
                 score_val = round(v,2)
-                if v > self.bot.config.get('flag_threshold'): score_val = f'**{score_val}**'
+                if v > self.bot.config.get('flag_threshold'): score_val = f'**{round(score_val,2) * 100}%**'
                 score_values.append(f"{self.bot.config.get('reaction_emojis')[i]} {score_val}")
 
             embed = discord.Embed(
