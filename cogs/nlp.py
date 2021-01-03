@@ -97,7 +97,7 @@ class NLP(commands.Cog):
             score_values = []
 
             for i, (k, v) in enumerate(scores.items()):
-                score_val = int(round(score_val * 100))
+                score_val = int(round(v * 100))
                 score_str = f'**{score_val}%**' if v > self.bot.config.get('flag_threshold') else f'{score_val}%'
                 score_values.append(f"{self.bot.config.get('reaction_emojis')[i]} {score_str}")
 
