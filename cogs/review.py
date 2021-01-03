@@ -171,7 +171,7 @@ class ReviewQueue(commands.Cog):
         score_values = []
 
         for i, (k, v) in enumerate(scores.items()):
-            score_values.append(f"{self.bot.config.get('reaction_emojis')[i]} {round(v,2)}")
+            score_values.append(f"{self.bot.config.get('reaction_emojis')[i]} {round(v,2) * 100}%")
 
         embed = discord.Embed(
             title='Review Message',
