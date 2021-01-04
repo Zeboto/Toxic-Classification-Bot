@@ -42,8 +42,9 @@ class Stats(commands.Cog):
 
     @timing(log=log)
     async def create_stats(self):
-        await self.bot.load_cache()
         
+        await self.bot.load_cache()
+        if self.last_stats and (datetime.now()-self.last_stats).total_seconds() < 30: return 
         reviewers = [x['user_id'] for x in self.bot.config['reviewer_channels']]
         channel = self.bot.get_channel(self.bot.config.get('stats_channel'))
         webhook = (await channel.webhooks())[0]
@@ -52,6 +53,6 @@ class Stats(commands.Cog):
             self.stat_message = message.id
         data = {'method': 'update_stats', 'channel': self.bot.config.get('stats_channel'), 'message': self.stat_message, 'reviewers': reviewers, 'url': webhook.url}
         await self.bot.redis.rpush('flagbot:queue', json.dumps(data))
-    
+        self.last_stats = datetime.now()
 def setup(bot):
     bot.add_cog(Stats(bot))
