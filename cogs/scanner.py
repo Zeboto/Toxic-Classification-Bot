@@ -1,51 +1,45 @@
 # -*- coding: utf-8 -*-
 import asyncio
-from datetime import datetime
-from utils.classes import Cog
-import logging
+from datetime import datetime, timedelta
 
 import discord
 from discord.ext import commands
 from utils.checks import in_scan_channel
 
-
-log = logging.getLogger(__name__)
-
-
 class Rollback(Exception):
     pass
 
 
-class Scanner(Cog):
-    messages = []
-    manual_check = False
-    message_lock = asyncio.Lock()
-    compute_lock = asyncio.Lock()
-
+class Scanner(commands.Cog):
+    def __init__(self, bot):
+        super().__init__()
+        self.bot = bot
+        self.messages = []
+        self.manual_check = False
+        self.message_lock = asyncio.Lock()
+        self.compute_lock = asyncio.Lock()
+            
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         # Ignore prefix
-        if message.content.startswith("f."):
-            return
-
-        if (message.author.id == self.bot.user.id):
-            return
+        if message.content.startswith("f."): return
+        
+        if (message.author.id == self.bot.user.id): return
 
         # Ignore message not in scan channels
-        if not in_scan_channel(self, message.channel.id):
-            return
-
+        if not in_scan_channel(self, message.channel.id): return
+        
         async with self.message_lock:
             # Add messages to processing queue
             self.messages += [message]
             if len(self.messages) % 100 == 0 or len(self.messages) == 1:
-                log.info(f"Added message {len(self.messages)}/{self.bot.config.get('min_scanned')}")
-
+                self.bot.logger.info(f"Added message {len(self.messages)}/{self.bot.config.get('min_scanned')}")
+                
         await self.process_messages()
 
     @commands.is_owner()
     @commands.command("extract_messages")
-    async def extract_messages_command(self, ctx: commands.Context, channel_id: str = '', count: int = 500):
+    async def extract_messages_command(self, ctx: commands.Context, channel_id: str='', count: int=500):
         channel = self.bot.get_channel(int(channel_id))
         reply = await ctx.send(f'1. Fetching {count} messages...')
         start = datetime.now()
@@ -56,61 +50,57 @@ class Scanner(Cog):
         async with self.message_lock:
             # Add messages to processing queue
             self.messages += messages
-            log.info(f"Added messages {len(self.messages)}/{self.bot.config.get('min_scanned')}")
-
+            self.bot.logger.info(f"Added messages {len(self.messages)}/{self.bot.config.get('min_scanned')}")
+        
         await self.process_messages(reply, start)
-
-    async def process_messages(self, reply: discord.Message = None, start: datetime = None):
-
+            
+    async def process_messages(self, reply: discord.Message=None, start: datetime=None):
+        
         async with self.compute_lock:
             # Load model cog
             nlp_cog = self.bot.get_cog('NLP')
             if nlp_cog is None:
-                log.info("The cog \"NLP\" is not loaded")
+                self.bot.logger.info("The cog \"NLP\" is not loaded")
                 return
             # If enough messages were collected then start processing
             async with self.message_lock:
-                if len(self.messages) < self.bot.config.get('min_scanned') or (self.manual_check and reply is None):
-                    if reply is not None:
-                        await reply.edit(content=f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)\n3. Not enough messages to scan {len(self.messages)}/{self.bot.config.get('min_scanned')}")
+                if len(self.messages) < self.bot.config.get('min_scanned') or (self.manual_check and reply is None): 
+                    if reply is not None: await reply.edit(content=f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)\n3. Not enough messages to scan {len(self.messages)}/{self.bot.config.get('min_scanned')}")
                     return
-                test_messages = self.messages.copy()
+                test_messages =self.messages.copy()
                 self.messages = []
-            if reply is not None:
-                await reply.edit(content=f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)\n3. Running model on {len(test_messages)} messages...")
+            if reply is not None: await reply.edit(content=f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)\n3. Running model on {len(test_messages)} messages...")
             start = datetime.now()
             # Run model
-            flags, new_reviews, logs = await asyncio.get_event_loop().run_in_executor(None, nlp_cog.compute_messages, test_messages)
-            if reply is not None:
-
+            flags,new_reviews,logs = await asyncio.get_event_loop().run_in_executor(None, nlp_cog.compute_messages, test_messages)
+            if reply is not None: 
+                
                 content = f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)"
                 for l in logs:
                     content += f"\n\t{l}"
                 content += f"\n>Flagged {len(flags)} messages and selected {len(new_reviews)} messages for the review queue."
                 content += f"\n4. Sending flagged messages to <#{self.bot.config.get('flag_channel')}>..."
                 await reply.edit(content=content)
-
+            
             start = datetime.now()
-            if len(flags) > 0:
+            if len(flags) > 0:    
                 # Send flagged messages
                 for flag in flags:
                     await self.bot.get_channel(self.bot.config.get('flag_channel')).send(embed=flag)
-            if reply is not None:
-                await reply.edit(content=f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)\n5. Sending review messages to <#{self.bot.config.get('review_channel')}> or review queue...")
+            if reply is not None: await reply.edit(content=f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)\n5. Sending review messages to <#{self.bot.config.get('review_channel')}> or review queue...")
             start = datetime.now()
             # Load review queue cog
             review_queue_cog = self.bot.get_cog('ReviewQueue')
             if review_queue_cog is None:
-                log.info("The cog \"ReviewQueue\" is not loaded")
+                self.bot.logger.info("The cog \"ReviewQueue\" is not loaded")
                 return
-
+            
             # Add flagged messages to review queue
             await review_queue_cog.add_reviews_to_queue(new_reviews)
-
-            if reply is not None:
+            
+            if reply is not None: 
                 await reply.edit(content=f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)")
                 self.manual_check = False
-
-
 def setup(bot):
     bot.add_cog(Scanner(bot))
+

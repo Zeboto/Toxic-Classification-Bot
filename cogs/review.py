@@ -1,32 +1,35 @@
 # -*- coding: utf-8 -*-
 import csv
-import logging
-
+import math
 import json
 import os
 import asyncio
-from datetime import datetime
-from utils.classes import Cog
+from datetime import datetime, timedelta
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from bot import FlagBot
 
 import discord
 import discord.http
+import aiohttp
 from discord.ext import commands
 from utils.checks import in_reviewer_channel
-
-
-log = logging.getLogger(__name__)
 
 
 class Rollback(Exception):
     pass
 
 
-class ReviewQueue(Cog):
-    review_queue = []
-    in_review = []
-    review_lock = asyncio.Lock()
-    messages = []
-    cols_target = ['insult', 'severe_toxic', 'identity_hate', 'threat', 'nsfw']
+class ReviewQueue(commands.Cog):
+    def __init__(self, bot):
+        super().__init__()
+        self.bot: "FlagBot" = bot
+        self.review_queue = []
+        self.in_review = []
+        self.review_lock = asyncio.Lock()
+        self.messages = []
+        self.cols_target = ['insult', 'severe_toxic', 'identity_hate', 'threat', 'nsfw']
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
@@ -38,7 +41,7 @@ class ReviewQueue(Cog):
         if not in_reviewer_channel(self, {'user_id': payload.user_id, 'channel_id': payload.channel_id}):
             return
 
-        log.info("Logged reaction")
+        self.bot.logger.info("Logged reaction")
 
         channel = self.bot.get_channel(payload.channel_id)
         message = await channel.fetch_message(payload.message_id)
@@ -53,7 +56,7 @@ class ReviewQueue(Cog):
 
         # Complete review when votes reached
         if str(reaction) == emojis[-4]:
-            log.info("Sending review.")
+            self.bot.logger.info("Sending review.")
             conn = self.bot.get_db()
             async with self.review_lock:
                 review = await conn.get_review_message(message.id, member.id)
@@ -74,7 +77,7 @@ class ReviewQueue(Cog):
 
         # Send to santization queue
         elif str(reaction) == emojis[-3]:
-            log.info("Sending to santization queue")
+            self.bot.logger.info("Sending to santization queue")
 
             async with self.review_lock:
                 conn = self.bot.get_db()
@@ -90,7 +93,7 @@ class ReviewQueue(Cog):
 
                 sanitize_cog = self.bot.get_cog('SanitizeQueue')
                 if sanitize_cog is None:
-                    log.info("The cog \"SanitizeQueue\" is not loaded")
+                    self.bot.logger.info("The cog \"SanitizeQueue\" is not loaded")
                     return
                 asyncio.create_task(sanitize_cog.add_to_sanitize_queue(review, msgs_to_edit))
 
@@ -107,7 +110,7 @@ class ReviewQueue(Cog):
 
         stats_cog = self.bot.get_cog('Stats')
         if stats_cog is None:
-            log.info("The cog \"Stats\" is not loaded")
+            self.bot.logger.info("The cog \"Stats\" is not loaded")
             return
         start = datetime.now()
         asyncio.create_task(stats_cog.create_stats())
@@ -181,7 +184,7 @@ class ReviewQueue(Cog):
     async def add_reviews_to_queue(self, new_reviews):
         nlp_cog = self.bot.get_cog('NLP')
         if nlp_cog is None:
-            log.info("The cog \"NLP\" is not loaded")
+            self.bot.logger.info("The cog \"NLP\" is not loaded")
             return
         for r in new_reviews:
             r['message'] = nlp_cog.clean_text(r['message'].content if type(r['message']) is not str else r['message'])

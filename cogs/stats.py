@@ -1,26 +1,36 @@
 import asyncio
 import logging
+import os
+import random
+import re
+import json
+from datetime import datetime, timedelta
 
-from datetime import datetime
-
-from utils.classes import Cog
-
+from typing import TYPE_CHECKING
 from utils.decorators import timing
 
+if TYPE_CHECKING:
+    from bot import FlagBot
+
+
 import discord
+import pandas as pd
+from discord.ext import commands
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
 
 log = logging.getLogger(__name__)
 
-class Stats(Cog):
-    stat_message: int = None
-    completed: int = 0
-    remaining: int = 0
-    reviewer_stats = {}
-    last_stats = None
 
-    def __init__(self, bot) -> None:
-        super().__init__(bot)
-
+class Stats(commands.Cog):
+    def __init__(self, bot):
+        super().__init__()
+        self.bot: "FlagBot" = bot
+        self.stat_message = None
+        self.completed = 0
+        self.remaining = 0
+        self.reviewer_stats = {}
+        self.last_stats = None
         asyncio.create_task(self.clean_channel())
         asyncio.create_task(self.create_stats())
 
