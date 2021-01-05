@@ -9,6 +9,7 @@ min_scanned = 500
 min_votes = 3
 queue_length = 1000
 flag_threshold = 0.5
+non_flagged_addition_chance = 0.002
 
 bot_server = 784984468251082752
 scan_channels = [
