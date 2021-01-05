@@ -17,12 +17,6 @@ scan_channels = [
 
 reviewer_category = 793586695282884609
 review_role = 786276045355221055
-review_hints = [
-    "Insults to oneself also counts as an insult.",
-    "The NSFW field refers to subjects related to dating/NSFW content.",
-    "Remember to check each message carefully.",
-    "Check all reactions that apply to each message."
-]
 
 flag_channel = 784984545131888711
 stats_channel = 785310590498504754

@@ -4,7 +4,6 @@ import math
 import json
 import os
 import asyncio
-import random
 from datetime import datetime, timedelta
 
 from typing import TYPE_CHECKING
@@ -180,7 +179,6 @@ class ReviewQueue(commands.Cog):
             color=0xff0000
         )
         embed.add_field(name='Scores', value='||' + ' '.join(score_values) + '||')
-        embed.set_footer(text=random.choice(self.bot.config.get('review_hints')))
         return embed
 
     async def add_reviews_to_queue(self, new_reviews):
