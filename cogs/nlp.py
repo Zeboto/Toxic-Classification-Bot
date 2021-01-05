@@ -81,7 +81,7 @@ class NLP(commands.Cog):
                 continue
             if any([value > self.bot.config.get('flag_threshold') for key,value in v.items()]):
                 flagged_messages.append({'message':test_messages[k],'score':v})
-            elif (random.random() <= 0.01):
+            elif (random.random() <= self.bot.config.get('non_flagged_addition_chance')):
                 random_non_flagged_messages.append({'message':test_messages[k],'score':v})
 
         self.bot.logger.info(f"Flagged {len(flagged_messages)} messages.")
