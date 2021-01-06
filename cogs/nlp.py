@@ -114,7 +114,14 @@ class NLP(commands.Cog):
             embed.add_field(name='\uFEFF', value=f'[Jump to message]({message.jump_url})') #  \uFEFF = ZERO WIDTH NO-BREAK SPACE
             flagged_message['embed'] = embed
 
-        return flagged_messages, (flagged_messages + random_non_flagged_messages),logs
+        review_messages = (flagged_messages + random_non_flagged_messages)
+        unique_messages = []
+        unique_review_messages = []
+        for i,r in enumerate(review_messages):
+            if self.clean_text(r['message'].content) not in unique_messages:
+                unique_messages.append(self.clean_text(r['message'].content))
+                unique_review_messages.append(r)
+        return flagged_messages, unique_review_messages, logs
         
     def clean_text(self, text: str):
         
