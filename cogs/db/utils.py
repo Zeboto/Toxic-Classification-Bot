@@ -417,7 +417,38 @@ class DBUtils(commands.Cog):
                 self.bot.config.get('min_votes')
             )
             return record
+    
+    
+    # ======================= #
+    # ===== INFRACTIONS ===== #
+    # ======================= #
 
+    async def add_infractions(self, infractions):
+        infs = []
+        for inf in infractions:
+            infs.append((
+                None, 
+                inf['message'].author.id, 
+                inf['message'].guild.id, 
+                inf['message'].channel.id, 
+                inf['message'].id, 
+                await self.add_score(inf['message'].content, inf['score']), 
+                None
+            ))
+
+        async with self.bot.db.acquire() as conn:
+            async with conn.transaction():
+                record = await conn.fetch(
+                    """
+                    INSERT INTO infractions (user_id, server_id, channel_id, message_id, score_id)
+                    (SELECT 
+                        i.user_id, i.server_id, i.channel_id, i.message_id, i.score_id
+                    FROM
+                        unnest($1::infractions[]) as i
+                    )
+                    """,
+                    infs
+                )
 
 def setup(bot):
     bot.add_cog(DBUtils(bot))

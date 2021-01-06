@@ -112,10 +112,9 @@ class NLP(commands.Cog):
 
             embed.add_field(name='Scores', value=' '.join(score_values))
             embed.add_field(name='\uFEFF', value=f'[Jump to message]({message.jump_url})') #  \uFEFF = ZERO WIDTH NO-BREAK SPACE
+            flagged_message['embed'] = embed
 
-            embeds.append(embed)
-
-        return embeds, (flagged_messages + random_non_flagged_messages),logs
+        return flagged_messages, (flagged_messages + random_non_flagged_messages),logs
         
     def clean_text(self, text: str):
         

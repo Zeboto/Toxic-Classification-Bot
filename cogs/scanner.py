@@ -85,8 +85,11 @@ class Scanner(commands.Cog):
             start = datetime.now()
             if len(flags) > 0:    
                 # Send flagged messages
+                conn = self.bot.get_db()
+                await conn.add_infractions(flags)
                 for flag in flags:
-                    await self.bot.get_channel(self.bot.config.get('flag_channel')).send(embed=flag)
+                    await self.bot.get_channel(self.bot.config.get('flag_channel')).send(embed=flag['embed'])
+                    
             if reply is not None: await reply.edit(content=f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)\n5. Sending review messages to <#{self.bot.config.get('review_channel')}> or review queue...")
             start = datetime.now()
             # Load review queue cog
