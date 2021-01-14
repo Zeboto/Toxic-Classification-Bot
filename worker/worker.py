@@ -14,7 +14,7 @@ import aioredis
 import discord.http
 import toml
 
-from .db import get_stats,get_total_reviews
+from .db import get_stats,get_total_reviews,get_total_remaining_reviews
 log = logging.getLogger(__name__)
 
 
@@ -73,6 +73,8 @@ class Worker:
         return cls(data)
 
     async def start(self):
+        await self.db_available.wait()
+
         self.redis = await aioredis.create_redis_pool(**self.config['redis'])
 
         await self.claim_token()
@@ -159,7 +161,7 @@ class Worker:
         
         async def update_stats():
             reviewers = data['reviewers']
-            log.critical(self.db)
+            await self.db_available.wait()
             completed = await get_total_reviews(self.db)
             reviewer_stats = {}
             stats = await get_stats(self.db, self.config['min_votes'])
@@ -172,7 +174,7 @@ class Worker:
                     'left': stat['remaining'],
                     'total_score': stat['total']
                 }
-            remaining = max([x['left'] for x in reviewer_stats.values()])
+            remaining = await get_total_remaining_reviews(self.db)
             await update_embed(completed, remaining, reviewer_stats)
 
         async def update_embed(completed, remaining, reviewer_stats):

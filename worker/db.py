@@ -24,6 +24,18 @@ async def get_total_reviews(db):
         record = await conn.fetchval("SELECT COUNT(*) FROM review_messages WHERE active = FALSE AND in_sanitize = FALSE")
         return record
 
+async def get_total_remaining_reviews(db):
+    async with db.acquire() as conn:
+        record = await conn.fetchval(
+            """
+            SELECT COUNT(*)
+            FROM review_messages r
+            WHERE in_sanitize = FALSE 
+            AND active
+            """
+        )
+        return record
+
 async def get_remaining_reviews(db, user_id: int, min_votes):
     async with db.acquire() as conn:
         record = await conn.fetchval(
