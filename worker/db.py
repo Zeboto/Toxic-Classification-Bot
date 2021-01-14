@@ -49,11 +49,19 @@ async def get_remaining_reviews(db, user_id: int, min_votes):
                 FROM review_log
                 WHERE user_id = $1 AND review_id = r.id AND active = FALSE
             )
-            AND NOT r.id IN (
-                SELECT review_id
-                FROM review_log
-                GROUP BY review_id HAVING COUNT(*) >= $2
+            AND (
+                NOT r.id IN (
+                    SELECT review_id
+                    FROM review_log 
+                    GROUP BY review_id HAVING COUNT(*) >= $2
+                ) 
+                OR r.id IN (
+                    SELECT review_id
+                    FROM review_log 
+                    WHERE user_id = $1 AND active
+                )
             )
+            
             """,
             user_id,
             min_votes
