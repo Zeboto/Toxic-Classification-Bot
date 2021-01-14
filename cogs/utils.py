@@ -83,8 +83,8 @@ class Utils(commands.Cog):
         category = [cat for cat in ctx.guild.categories if cat.id == category_id][0]
         
         overwrites = {
-            ctx.guild.default_role: discord.PermissionOverwrite(read_messages=False, add_reactions=False, send_messages=False),
-            ctx.guild.get_role(self.bot.config.get('bot_role')): discord.PermissionOverwrite(read_messages=True, manage_messages=True, add_reactions=True, send_messages=True),
+            ctx.guild.default_role: discord.PermissionOverwrite(read_messages=False, add_reactions=False),
+            ctx.guild.get_role(self.bot.config.get('bot_role')): discord.PermissionOverwrite(read_messages=True, manage_messages=True, add_reactions=True),
             ctx.author: discord.PermissionOverwrite(read_messages=True)
         }
 
