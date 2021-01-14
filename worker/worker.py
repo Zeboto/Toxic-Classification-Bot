@@ -167,7 +167,10 @@ class Worker:
             stats = await get_stats(self.db, self.config['min_votes'])
             for r in reviewers:
                 user = await self.http.get_user(r)
-                stat = [x for x in stats if r == x['user_id']][0]
+                stat = [x for x in stats if r == x['user_id']]
+                if len(stat) == 0:
+                    continue
+                stat = stat[0]
                 reviewer_stats[str(r)] = {
                     'name': user['username'],
                     'completed': stat['completed'],
