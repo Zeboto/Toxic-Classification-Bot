@@ -154,6 +154,17 @@ class DBUtils(commands.Cog):
                     """,
                     review_id
                 )
+    
+    async def delete_active_review_message(self, user_id):
+        async with self.bot.db.acquire() as conn:
+            await conn.fetch(
+                """
+                    DELETE FROM review_log
+                    WHERE user_id = $1 AND active
+                    """,
+                user_id
+            )
+            
 
     # ====================== #
     # ==== REVIEW QUEUE ==== #

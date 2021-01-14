@@ -32,6 +32,22 @@ class ReviewQueue(commands.Cog):
         self.cols_target = ['insult', 'severe_toxic', 'identity_hate', 'threat', 'nsfw']
 
     @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        # Ignore prefix
+        if message.content.startswith("f."): return
+        
+        if (message.author.id == self.bot.user.id) or message.webhook_id: return
+
+       # Ignore message not in review channels
+        if not in_reviewer_channel(self, {'user_id': message.author.id, 'channel_id': message.channel.id}):
+            return
+
+        if message.content.lower() == "refresh":
+            await message.channel.purge(limit=100)
+            await self.refresh_queue(message.author.id)
+
+
+    @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         # Ignore reactions from the bot
         if (payload.user_id == self.bot.user.id):
@@ -146,11 +162,10 @@ class ReviewQueue(commands.Cog):
         async with self.review_lock:
             reviewers = await conn.find_empty_queues()
 
-        if len(reviewers) == 0:
-            return
+            if len(reviewers) == 0:
+                return
 
-        for reviewer in reviewers:
-            async with self.review_lock:
+            for reviewer in reviewers:
                 review_message = await conn.pop_review_queue(reviewer['user_id'])
                 if not review_message:
                     continue
@@ -164,9 +179,14 @@ class ReviewQueue(commands.Cog):
                 sent_message = await channel.fetch_message((await webhook.send(embed=embed, avatar_url=self.bot.user.avatar_url, wait=True)).id)
 
                 await conn.add_review_log(review_message['id'], reviewer['user_id'], sent_message.id)
-
-            for emoji in self.bot.config.get('reaction_emojis')[:-2]:
-                await sent_message.add_reaction(emoji)
+                for emoji in self.bot.config.get('reaction_emojis')[:-2]:
+                    await sent_message.add_reaction(emoji)
+                    
+    
+    async def refresh_queue(self, user_id):
+        conn = self.bot.get_db()
+        await conn.delete_active_review_message(user_id)
+        await self.fill_empty_queues()
 
     def create_review_embed(self, content: str, scores: dict):
         score_values = []
