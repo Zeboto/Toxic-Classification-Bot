@@ -103,6 +103,7 @@ class ReviewQueue(commands.Cog):
         review_message = await conn.pop_review_queue(member.id)
         if not review_message:
             await webhook.delete_message(message.id)
+            return
         scores = await conn.get_score(review_message['score_id'])
         embed = self.create_review_embed(review_message['clean_content'], scores)
         await conn.add_review_log(review_message['id'], member.id, message.id)
