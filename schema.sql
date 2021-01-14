@@ -93,7 +93,8 @@ CREATE TABLE IF NOT EXISTS review_log (
     review_id BIGINT NOT NULL REFERENCES review_messages ON DELETE CASCADE,
     
     -- User reviewed/reviewing
-    user_id BIGINT NOT NULL REFERENCES reviewers ON DELETE CASCADE,
+    user_id BIGINT REFERENCES reviewers ON DELETE SET NULL,
+
     UNIQUE(review_id,user_id),
     -- Review Discord message ID
     message_id BIGINT,
