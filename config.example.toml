@@ -12,6 +12,8 @@ flag_threshold = 0.5
 non_flagged_addition_chance = 0.002
 
 bot_server = 784984468251082752
+bot_role = 784984786690899968
+
 scan_channels = [
   289482554250100736
 ]
@@ -45,6 +47,7 @@ reaction_emojis = [
 ]
 
 blacklist = []
+ignored_users = [172002275412279296, 159985870458322944]
 
 [database]
 # The keyword arguments that get passed into database connectors.
