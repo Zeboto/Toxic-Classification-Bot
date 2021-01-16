@@ -429,6 +429,39 @@ class DBUtils(commands.Cog):
             )
             return record
     
+    async def get_deviance_messages(self, user_id, field):
+        async with self.bot.db.acquire() as conn:
+            record = await conn.fetch(
+                f"""
+                WITH reviews_table AS (
+                    SELECT * 
+                    FROM review_log INNER JOIN review_messages ON id = review_id 
+                    WHERE review_log.active = FALSE 
+                    AND review_messages.active = FALSE 
+                    AND in_sanitize = FALSE 
+                    AND EXISTS (
+                        SELECT 1
+                        FROM review_log
+                        WHERE review_messages.id = review_id 
+                        AND active = FALSE
+                    )
+                ), result_table AS (
+                    SELECT 
+                        review_id,
+                        CASE WHEN AVG({field}) > 2/3 THEN 1 ELSE 0 END {field}
+                    FROM reviews_table
+                    GROUP BY review_id
+                )
+                SELECT clean_content, reviews_table.{field} AS submitted
+                FROM result_table INNER JOIN reviews_table USING (review_id)
+                WHERE result_table.{field} != reviews_table.{field} 
+                AND user_id = $1
+                ORDER BY review_id
+                """, 
+                user_id
+            )
+            return record
+
     
     # ======================= #
     # ===== INFRACTIONS ===== #
