@@ -231,8 +231,10 @@ class DBUtils(commands.Cog):
             async with conn.transaction():
                 await conn.fetch(
                     """
-                    INSERT INTO review_log (review_id, user_id, message_id)
-                    VALUES ($1, $2, $3) 
+                    INSERT INTO review_log (review_id, user_id, message_id, trusted_review)
+                    SELECT $1, $2, $3, trusted 
+                    FROM reviewers 
+                    WHERE user_id = $2
                     """,
                     review_id,
                     user_id,
@@ -286,8 +288,29 @@ class DBUtils(commands.Cog):
             if record >= self.bot.config.get('min_votes'):
                 record = await conn.fetch(
                     """
-                    SELECT clean_content, insult, severe_toxic, identity_hate, threat, nsfw
-                    FROM review_log 
+                    WITH reviews_table AS (
+                        SELECT * 
+                        FROM review_log INNER JOIN review_messages ON id = review_id 
+                        WHERE review_id = $1 
+                    ), decision_table AS (
+                        SELECT 
+                            review_id,
+                            CASE WHEN AVG(insult) > 2/3 THEN 1 ELSE 0 END insult,
+                            CASE WHEN AVG(severe_toxic) > 2/3 THEN 1 ELSE 0 END severe_toxic,
+                            CASE WHEN AVG(identity_hate) > 2/3 THEN 1 ELSE 0 END identity_hate,
+                            CASE WHEN AVG(threat) > 2/3 THEN 1 ELSE 0 END threat,
+                            CASE WHEN AVG(nsfw) > 2/3 THEN 1 ELSE 0 END nsfw
+                        FROM (
+                                SELECT * FROM reviews_table
+                                UNION 
+                                SELECT * 
+                                FROM reviews_table
+                                WHERE trusted_review
+                            ) votes
+                        GROUP BY review_id
+                    )
+                    SELECT clean_content, decision_table.*
+                    FROM decision_table 
                     INNER JOIN review_messages ON review_id = id
                     WHERE review_id = $1
                     """,
@@ -303,8 +326,6 @@ class DBUtils(commands.Cog):
                 for r in record:
                     for k, v in new_scores.items():
                         new_scores[k] += r[k]
-                for k, v in new_scores.items():
-                    new_scores[k] = 1 if new_scores[k] / len(record) >= 2 / 3 else 0
                 await self.complete_review(review_id)
                 return {'message': record[0]['clean_content'], 'score': new_scores}
             return None
