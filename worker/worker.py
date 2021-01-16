@@ -14,6 +14,11 @@ import aioredis
 import discord.http
 import toml
 
+import seaborn as sns
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+
 from .db import get_stats,get_total_reviews,get_total_remaining_reviews
 log = logging.getLogger(__name__)
 
@@ -164,7 +169,10 @@ class Worker:
             await self.db_available.wait()
             completed = await get_total_reviews(self.db)
             reviewer_stats = {}
-            stats = await get_stats(self.db, self.config['min_votes'])
+            stats = await get_stats(self.db, self.config)
+            usernames = []
+            fields = ['insult', 'severe_toxic', 'identity_hate', 'threat', 'nsfw']
+            scores = []
             for r in reviewers:
                 user = await self.http.get_user(r)
                 stat = [x for x in stats if r == x['user_id']]
@@ -177,10 +185,41 @@ class Worker:
                     'left': stat['remaining'],
                     'total_score': stat['total']
                 }
+                usernames.append(user['username'])
+                scores.append([float(stat[x]) for x in fields])
+            
             remaining = await get_total_remaining_reviews(self.db)
-            await update_embed(completed, remaining, reviewer_stats)
+            log.info(scores)
+            heatmap = await create_heatmap(usernames, fields, np.array(scores).transpose())
+            log.info("Created heatmap")
 
-        async def update_embed(completed, remaining, reviewer_stats):
+            await update_embed(completed, remaining, reviewer_stats, heatmap)
+        
+        async def create_heatmap(usernames, fields, scores):
+            fig, ax = plt.subplots(figsize=(16,5))
+            
+            im = ax.imshow(scores)
+            
+            ax.set_xticks(np.arange(len(usernames)))
+            ax.set_yticks(np.arange(len(fields)))
+
+            ax.set_xticklabels(usernames)
+            ax.set_yticklabels(fields)
+
+            plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+
+            for i in range(len(fields)):
+                for j in range(len(usernames)):
+                    text = ax.text(j, i, scores[i, j], ha="center", va="center", color="w")
+            
+            ax.set_title("Deviance scores per field")
+            
+            plt.savefig('deviance.png')
+            
+            url = (await self.http.send_files(799443575846076416, files=[discord.File("deviance.png")]))['attachments'][0]['url']
+            return url
+
+        async def update_embed(completed, remaining, reviewer_stats, heatmap):
             channel_id = data['channel'] 
             message_id = data['message']
             webhook_url = data['url']
@@ -193,12 +232,14 @@ class Worker:
                 description=content,
                 color=0xff0000
             )
+            embed.set_image(url=heatmap)
             for uid,r in reviewer_stats.items():
                 embed.add_field(name=r['name'], value=f"Reviews Left: {r['left']}\nReviews Completed: {r['completed']}\nDeviance Score: {r['total_score']}")
             
             webhook = Webhook.from_url(webhook_url, adapter=AsyncWebhookAdapter(self.session))
             await webhook.edit_message(message_id, embed=embed)
-
+        
+        
         if data['method'] == 'delete_reactions':
             await delete_reactions()
         if data['method'] == 'update_stats':
