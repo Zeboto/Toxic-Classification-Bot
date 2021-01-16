@@ -173,13 +173,11 @@ class Worker:
             usernames = []
             fields = ['insult', 'severe_toxic', 'identity_hate', 'threat', 'nsfw']
             scores = []
-            for r in reviewers:
-                user = await self.http.get_user(r)
-                stat = [x for x in stats if r == x['user_id']]
+            for stat in stats:
+                user = await self.http.get_user(stat['user_id'])
                 if len(stat) == 0:
                     continue
-                stat = stat[0]
-                reviewer_stats[str(r)] = {
+                reviewer_stats[str(stat['user_id'])] = {
                     'name': user['username'],
                     'completed': stat['completed'],
                     'left': stat['remaining'],
@@ -189,7 +187,6 @@ class Worker:
                 scores.append([float(stat[x]) for x in fields])
             
             remaining = await get_total_remaining_reviews(self.db)
-            log.info(scores)
             heatmap = await create_heatmap(usernames, fields, np.array(scores).transpose())
             log.info("Created heatmap")
 
