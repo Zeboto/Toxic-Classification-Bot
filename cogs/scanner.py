@@ -67,7 +67,8 @@ class Scanner(commands.Cog):
                 if len(self.messages) < self.bot.config.get('min_scanned') or (self.manual_check and reply is None): 
                     if reply is not None: await reply.edit(content=f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)\n3. Not enough messages to scan {len(self.messages)}/{self.bot.config.get('min_scanned')}")
                     return
-                test_messages =self.messages.copy()
+                test_messages = self.messages.copy()
+                test_messages = [x for x in test_messages if x.author.id not in self.bot.config.get('ignored_users')]
                 self.messages = []
             if reply is not None: await reply.edit(content=f"{reply.content} Done ({(datetime.now()-start).total_seconds()} seconds)\n3. Running model on {len(test_messages)} messages...")
             start = datetime.now()
