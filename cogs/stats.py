@@ -39,6 +39,21 @@ class Stats(commands.Cog):
         # Clear review queue
         channel = self.bot.get_channel(self.bot.config.get('stats_channel'))
         await channel.purge(limit=100)
+    
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        # Ignore reactions from the bot
+        if (payload.user_id == self.bot.user.id):
+            return
+
+        if payload.channel_id != self.bot.config.get('stats_channel'):
+            return
+        self.bot.logger.info(payload.emoji)
+        if str(payload.emoji) == '🔁':
+            await self.create_stats()
+            message = await self.bot.get_channel(self.bot.config.get('stats_channel')).fetch_message(payload.message_id)
+            await message.remove_reaction(str(payload.emoji), await self.bot.fetch_user(payload.user_id))
+
 
     @timing(log=log)
     async def create_stats(self):
