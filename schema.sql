@@ -64,8 +64,13 @@ CREATE TABLE IF NOT EXISTS reviewers (
     -- The review channel the user is connected to
     channel_id BIGINT NOT NULL,
 
+    -- Whether this user is a trusted reviewer
+    trusted BOOLEAN DEFAULT false,
+
     -- Date this reviwer was created
     date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+
 );
 
 CREATE TABLE IF NOT EXISTS review_messages (
@@ -108,6 +113,9 @@ CREATE TABLE IF NOT EXISTS review_log (
 
     -- If content is being voted on
     active BOOLEAN DEFAULT true,
+
+    -- If trusted reviewer at time of voting
+    trusted_review BOOLEAN DEFAULT false,
 
     -- Date created
     date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
