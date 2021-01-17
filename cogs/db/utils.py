@@ -469,7 +469,7 @@ class DBUtils(commands.Cog):
                 ), result_table AS (
                     SELECT 
                         review_id,
-                        CASE WHEN AVG({field}) > 2/3 THEN 1 ELSE 0 END {field}
+                        CASE WHEN AVG({field}) > 2/3::float THEN 1 ELSE 0 END {field}
                     FROM reviews_table
                     GROUP BY review_id
                 )
