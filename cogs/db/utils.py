@@ -295,11 +295,11 @@ class DBUtils(commands.Cog):
                     ), decision_table AS (
                         SELECT 
                             review_id,
-                            CASE WHEN AVG(insult) > 2/3 THEN 1 ELSE 0 END insult,
-                            CASE WHEN AVG(severe_toxic) > 2/3 THEN 1 ELSE 0 END severe_toxic,
-                            CASE WHEN AVG(identity_hate) > 2/3 THEN 1 ELSE 0 END identity_hate,
-                            CASE WHEN AVG(threat) > 2/3 THEN 1 ELSE 0 END threat,
-                            CASE WHEN AVG(nsfw) > 2/3 THEN 1 ELSE 0 END nsfw
+                            CASE WHEN AVG(insult) > 2/3::float THEN 1 ELSE 0 END insult,
+                            CASE WHEN AVG(severe_toxic) > 2/3::float THEN 1 ELSE 0 END severe_toxic,
+                            CASE WHEN AVG(identity_hate) > 2/3::float THEN 1 ELSE 0 END identity_hate,
+                            CASE WHEN AVG(threat) > 2/3::float THEN 1 ELSE 0 END threat,
+                            CASE WHEN AVG(nsfw) > 2/3::float THEN 1 ELSE 0 END nsfw
                         FROM (
                                 SELECT * FROM reviews_table
                                 UNION 
@@ -403,11 +403,11 @@ class DBUtils(commands.Cog):
                 ), result_table AS (
                     SELECT 
                         review_id,
-                        CASE WHEN AVG(insult) > 2/3 THEN 1 ELSE 0 END insult,
-                        CASE WHEN AVG(severe_toxic) > 2/3 THEN 1 ELSE 0 END severe_toxic,
-                        CASE WHEN AVG(identity_hate) > 2/3 THEN 1 ELSE 0 END identity_hate,
-                        CASE WHEN AVG(threat) > 2/3 THEN 1 ELSE 0 END threat,
-                        CASE WHEN AVG(nsfw) > 2/3 THEN 1 ELSE 0 END nsfw
+                        CASE WHEN AVG(insult) > 2/3::float THEN 1 ELSE 0 END insult,
+                        CASE WHEN AVG(severe_toxic) > 2/3::float THEN 1 ELSE 0 END severe_toxic,
+                        CASE WHEN AVG(identity_hate) > 2/3::float THEN 1 ELSE 0 END identity_hate,
+                        CASE WHEN AVG(threat) > 2/3::float THEN 1 ELSE 0 END threat,
+                        CASE WHEN AVG(nsfw) > 2/3::float THEN 1 ELSE 0 END nsfw
                     FROM reviews_table
                     GROUP BY review_id
                 ), user_table AS (
