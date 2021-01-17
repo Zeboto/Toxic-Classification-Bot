@@ -63,12 +63,18 @@ async def get_stats(db, config):
                 WHERE review_id IN (SELECT id FROM free_review_table)
                 GROUP BY user_id
             ), final_query AS (
-                SELECT user_id, (free_review_count+active_count-inactive_count) AS remaining
-                FROM (SELECT user_id, COALESCE(MAX(active_count), 0) active_count, COALESCE(MAX(inactive_count), 0) inactive_count
-                            FROM active_queue_table FULL JOIN inactive_queue_table USING(user_id)
-                            GROUP BY user_id
-                        
+                SELECT 
+                    user_id,
+                    COALESCE(MAX(remaining), 0) remaining
+                FROM (
+                    SELECT user_id, (free_review_count+active_count-inactive_count) AS remaining
+                    FROM (
+                        SELECT user_id, COALESCE(MAX(active_count), 0) active_count, COALESCE(MAX(inactive_count), 0) inactive_count
+                        FROM active_queue_table FULL JOIN inactive_queue_table USING(user_id)
+                        GROUP BY user_id        
                     ) k, (SELECT COALESCE(MAX(free_review_count), 0) free_review_count FROM (SELECT COUNT(*) AS free_review_count FROM free_review_table) f) r
+                ) p FULL JOIN reviewers USING (user_id)
+                GROUP BY user_id
             ), reviews_table AS (
                 SELECT * 
                 FROM review_log INNER JOIN review_messages ON id = review_id 
@@ -92,15 +98,26 @@ async def get_stats(db, config):
                     ) votes
                 GROUP BY review_id
             ), deviance_table as (
-                SELECT
+                SELECT 
                     user_id,
-                    COUNT(*) as completed,
-                    ROUND(AVG(CASE WHEN decision_table.insult = reviews_table.insult THEN 0 ELSE 1 END), 3) AS insult,
-                    ROUND(AVG(CASE WHEN decision_table.severe_toxic = reviews_table.severe_toxic THEN 0 ELSE 1 END), 3) AS severe_toxic,
-                    ROUND(AVG(CASE WHEN decision_table.identity_hate = reviews_table.identity_hate THEN 0 ELSE 1 END), 3) AS identity_hate,
-                    ROUND(AVG(CASE WHEN decision_table.threat = reviews_table.threat THEN 0 ELSE 1 END), 3) AS threat,
-                    ROUND(AVG(CASE WHEN decision_table.nsfw = reviews_table.nsfw THEN 0 ELSE 1 END), 3) AS nsfw
-                FROM decision_table INNER JOIN reviews_table USING(review_id)
+                    COALESCE(MAX(completed), 0) completed,
+                    COALESCE(MAX(insult), 0) insult,
+                    COALESCE(MAX(severe_toxic), 0) severe_toxic,
+                    COALESCE(MAX(identity_hate), 0) identity_hate,
+                    COALESCE(MAX(threat), 0) threat,
+                    COALESCE(MAX(nsfw), 0) nsfw
+                FROM (
+                    SELECT
+                        user_id,
+                        COUNT(*) as completed,
+                        ROUND(AVG(CASE WHEN decision_table.insult = reviews_table.insult THEN 0 ELSE 1 END), 3) AS insult,
+                        ROUND(AVG(CASE WHEN decision_table.severe_toxic = reviews_table.severe_toxic THEN 0 ELSE 1 END), 3) AS severe_toxic,
+                        ROUND(AVG(CASE WHEN decision_table.identity_hate = reviews_table.identity_hate THEN 0 ELSE 1 END), 3) AS identity_hate,
+                        ROUND(AVG(CASE WHEN decision_table.threat = reviews_table.threat THEN 0 ELSE 1 END), 3) AS threat,
+                        ROUND(AVG(CASE WHEN decision_table.nsfw = reviews_table.nsfw THEN 0 ELSE 1 END), 3) AS nsfw
+                    FROM decision_table INNER JOIN reviews_table USING(review_id)
+                    GROUP BY user_id
+                ) d FULL JOIN reviewers USING (user_id)
                 GROUP BY user_id
             ), result_query as (
                 SELECT *, 
@@ -112,7 +129,10 @@ async def get_stats(db, config):
                 FROM result_query
                 WHERE reviewers.user_id = result_query.user_id
             )
-            SELECT * FROM result_query INNER JOIN reviewers USING (user_id) INNER JOIN final_query USING (user_id) ORDER BY reviewers.date_created ASC
+            SELECT * 
+            FROM result_query FULL JOIN reviewers USING (user_id) FULL JOIN final_query USING (user_id) 
+            WHERE user_id IS NOT NULL
+            ORDER BY reviewers.date_created ASC
             """,
             config['min_votes'],
             config['trusted_reviewer']['min_reviews'],
